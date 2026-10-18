@@ -1,0 +1,17 @@
+hook,type,used_on,reel,result_views,status
+"Best $1,200 youll ever spend",price,2026-10-07,,,burned
+"This is what $1,200 a day gets you",price,,,,losing_type
+"POV: you finally booked your dream tattoo",pov,,S03,1081,burned
+"Which one would you get? 1-7",which_one,,S02,1159,burned
+"Cheap tattoos arent good. Good tattoos arent cheap.",opinion,,S01,1351,burned
+"Rate these 1-10",rate,2026-10-07,,,burned
+"Rate my work 1-10",rate,,,,losing_type
+"Booked out for a reason",booking,2026-10-07,,,burned
+"Black and grey realism hits different",brag,,,,losing_type
+"Stop getting small tattoos",opinion,,,,retired
+"Did I cook?",generic,,,,losing_type
+"Be honest",generic,,,,losing_type
+"Which one?",which_one,,,,losing_type
+"What do you think?",generic,,,,losing_type
+"Was it worth it?",generic,,,,losing_type
+"Cant believe we got this much done",progress,2026-10-01,Dd48NSwqpe0,,burned
