@@ -1,0 +1,56 @@
+{
+  "id": "three-types-gym-people",
+  "format": "The 3 types of people at the gym",
+  "hook": "The 3 types of people at the gym",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "The 3 types of people",
+        "at the gym"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3,
+      "lines": [
+        "TYPE 1: The Tourist",
+        "Visits every machine",
+        "Commits to none"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3,
+      "lines": [
+        "TYPE 2: The Program Hopper",
+        "New program every Monday",
+        "Restarts week 1 forever"
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "TYPE 3: The One With a Plan",
+        "Walks in. Does the workout.",
+        "Leaves. Unbothered."
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "Become type 3.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Tag the program hopper in your life (it might be you). SMUVE Training Club hands you the plan so you can be type 3. $9.99/mo, cancel anytime. #gymtok #gymtypes #gymhumor #programhopping #smuvefitness",
+  "youtubeTitle": "The 3 Types of People at Every Gym #shorts",
+  "audioVibe": "Bouncy character-intro sound with a whoosh on each type reveal"
+}

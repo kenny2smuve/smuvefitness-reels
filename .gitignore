@@ -1,0 +1,6 @@
+.tmp/
+node_modules/
+# Impact is a Microsoft font: fine to render with locally, not ours to redistribute.
+assets/fonts/impact.ttf
+# The site web font crashes ffmpeg; Anton-Regular.ttf (OFL) is the committed choice.
+assets/fonts/archivo-var.woff2

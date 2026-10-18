@@ -1,0 +1,51 @@
+{
+  "id": "storytime-every-beginner",
+  "format": "Storytime in 3 lines",
+  "hook": "Storytime: every beginner, in 3 lines.",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "Storytime:",
+        "every beginner, in 3 lines."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 2.5,
+      "lines": [
+        "1. Signs up in January."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 2.5,
+      "lines": [
+        "2. Copies random workouts for 3 weeks."
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 2.5,
+      "lines": [
+        "3. \"The gym just isn't for me.\""
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3.5,
+      "lines": [
+        "Plot twist: it was.",
+        "The plan just wasn't there.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "If this is your story, the sequel goes differently with a plan. SMUVE Training Club: structured workouts for men and women, $9.99/mo. Free 8-exercise sample at smuvefitness.net/sample. #gymtok #storytime #beginnergym #gymhumor #smuvefitness",
+  "youtubeTitle": "Every Beginner's Gym Story in 3 Lines #shorts",
+  "audioVibe": "Soft sad-storytime piano that cuts to an upbeat drop on the plot twist"
+}

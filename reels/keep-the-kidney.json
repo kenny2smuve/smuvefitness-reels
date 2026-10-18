@@ -1,0 +1,45 @@
+{
+  "id": "keep-the-kidney",
+  "format": "Expectation vs reality",
+  "hook": "What I thought a gym program costs:",
+  "scenes": [
+    {
+      "bg": "card-white",
+      "seconds": 2.5,
+      "lines": [
+        "What I thought a gym program costs:"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3.5,
+      "lines": [
+        "My tax refund.",
+        "A kidney.",
+        "My firstborn."
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "What it actually costs:"
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3.5,
+      "lines": [
+        "$9.99 a month.",
+        "Keep the kidney. And the kid.",
+        {
+          "text": "SMUVE Training Club - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "You can keep both kidneys 🙏 Structured programs for men and women, $9.99/mo, cancel anytime. Try a free sample at smuvefitness.net/sample #gymtok #fitnessmemes #gymhumor #workoutprogram #smuvefitness",
+  "youtubeTitle": "What I Thought a Gym Program Cost vs Reality #shorts",
+  "audioVibe": "Dramatic orchestral build-up that cuts to silence, then a light comedic ding on the reveal"
+}

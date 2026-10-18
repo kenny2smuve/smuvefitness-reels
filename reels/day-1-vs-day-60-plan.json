@@ -1,0 +1,49 @@
+{
+  "id": "day-1-vs-day-60-plan",
+  "format": "Day 1 vs Day 60",
+  "hook": "Day 1 vs Day 60 on a plan",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "Day 1 vs Day 60",
+        "on a plan"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3.5,
+      "lines": [
+        "DAY 1:",
+        "Stares at the cable machine",
+        "Googles 'what does this do'",
+        "Does curls. Goes home."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3.5,
+      "lines": [
+        "DAY 60:",
+        "Walks in knowing the exact workout",
+        "Logs every set",
+        "Hasn't Googled a machine in weeks"
+      ]
+    },
+    {
+      "bg": "broll-neutral",
+      "seconds": 3,
+      "lines": [
+        "Same gym. Different plan.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Day 1 you're googling the cable machine. Day 60 you just know what's next. It isn't talent, it's having a plan. SMUVE Training Club, $9.99/mo, cancel anytime. Link in bio. #gymtok #gymhumor #beginnergym #workoutplan #smuvefitness",
+  "youtubeTitle": "Day 1 vs Day 60 of Actually Having a Gym Plan #shorts",
+  "audioVibe": "Beat switch: awkward muted lo-fi under Day 1, then a bass drop when the Day 60 card hits"
+}

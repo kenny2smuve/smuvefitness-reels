@@ -1,0 +1,19 @@
+{
+  "id": "before-the-plan",
+  "format": "Me before vs me after (Kenny's example)",
+  "hook": "Me before the $9.99 plan:",
+  "scenes": [
+    { "bg": "card-black", "seconds": 3.2, "lines": [
+      { "text": "Me before the $9.99 plan:", "style": "meme", "at": 0 },
+      { "text": "*does 3 sets of curls, checks phone for 40 minutes, leaves*", "style": "small", "at": 1.0 } ] },
+    { "bg": "card-black", "seconds": 2.4, "lines": [
+      { "text": "\"I'll just see how I feel today\"", "style": "meme", "at": 0 },
+      { "text": "(felt like going home)", "style": "small", "at": 1.1 } ] },
+    { "bg": "kenny", "seconds": 3.4, "pos": "top", "lines": [
+      { "text": "Me after:", "style": "big", "at": 0 },
+      { "text": "Every set written down. Every week harder.", "style": "small", "at": 1.0 } ] }
+  ],
+  "caption": "The plan did the thinking. I just showed up. SMUVE Training Club is $9.99 a month, link in bio. #gymhumor #gymtok #workoutplan #fitnessmotivation #smuvefitness",
+  "youtubeTitle": "Me before vs after a $9.99 workout plan #shorts",
+  "audioVibe": "dramatic transformation beat drop on the cut to 'Me after'"
+}

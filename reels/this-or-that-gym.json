@@ -1,0 +1,56 @@
+{
+  "id": "this-or-that-gym",
+  "format": "This or That",
+  "hook": "This or that: gym edition. Go.",
+  "scenes": [
+    {
+      "bg": "broll-neutral",
+      "seconds": 2,
+      "lines": [
+        "This or that:",
+        "gym edition. Go."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 2.5,
+      "lines": [
+        "Morning lift",
+        "or",
+        "night lift?"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 2.5,
+      "lines": [
+        "Headphones in",
+        "or",
+        "gym small talk?"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3,
+      "lines": [
+        "Winging it (free, and it shows)",
+        "or",
+        "A real plan ($9.99/mo)?"
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "Comment your answers.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Drop your answers 1-2-3 in the comments. We already know the right answer for number 3. SMUVE Training Club, $9.99/mo, cancel anytime. #gymtok #thisorthat #gymlife #gymhumor #smuvefitness",
+  "youtubeTitle": "Gym This or That: Which One Are You? #shorts",
+  "audioVibe": "Fast ticking-clock quick-choice beat with a snap on each question"
+}

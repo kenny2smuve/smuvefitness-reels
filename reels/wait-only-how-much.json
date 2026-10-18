@@ -1,0 +1,46 @@
+{
+  "id": "wait-only-how-much",
+  "format": "Wait, it is only...? (double-take)",
+  "hook": "Wait... it's only HOW much??",
+  "scenes": [
+    {
+      "bg": "card-red",
+      "seconds": 2,
+      "lines": [
+        "Wait... it's only HOW much??"
+      ]
+    },
+    {
+      "bg": "broll-neutral",
+      "seconds": 4,
+      "lines": [
+        "A full gym program",
+        "Every workout planned for you",
+        "Men's and women's versions",
+        "Cancel anytime"
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 2.5,
+      "lines": [
+        "$9.99 a month.",
+        "Not a typo. Read it again."
+      ]
+    },
+    {
+      "bg": "kenny",
+      "seconds": 3,
+      "lines": [
+        "Yes. On purpose.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Not a typo 🤝 $9.99/mo, cancel anytime. Want to try it first? Free sample workout at smuvefitness.net/sample #gymtok #workoutprogram #gymbeginner #fitnessmemes #smuvefitness",
+  "youtubeTitle": "Wait... A Full Gym Program Is Only HOW Much? #shorts",
+  "audioVibe": "Record-scratch double-take into a smooth, confident R&B beat"
+}

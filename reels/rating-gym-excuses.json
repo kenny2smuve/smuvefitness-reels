@@ -1,0 +1,54 @@
+{
+  "id": "rating-gym-excuses",
+  "format": "Rating gym excuses out of 10",
+  "hook": "Rating your gym excuses out of 10",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "Rating your gym excuses",
+        "out of 10"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "\"It's raining\"",
+        "0/10. The gym has a roof."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "\"I'll start Monday\"",
+        "1/10. You said that 6 Mondays ago."
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3.5,
+      "lines": [
+        "\"I don't know what to do there\"",
+        "10/10. Honestly valid.",
+        "Also very fixable."
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "Excuse removed.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Only one of these is a real excuse, and it has a fix. Rate your own excuse in the comments. SMUVE Training Club is a structured plan for men and women, $9.99/mo. Link in bio. #gymtok #gymexcuses #gymmemes #fitnesshumor #smuvefitness",
+  "youtubeTitle": "Rating Your Gym Excuses Out of 10 (Be Honest) #shorts",
+  "audioVibe": "Deadpan game-show judge panel, with a ding or buzzer on each score"
+}

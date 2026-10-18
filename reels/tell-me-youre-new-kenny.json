@@ -1,0 +1,46 @@
+{
+  "id": "tell-me-youre-new-kenny",
+  "format": "Tell me you... without telling me",
+  "hook": "Tell me you're new without telling me",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "Tell me you're new",
+        "without telling me"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 4.5,
+      "lines": [
+        "Googling 'how many sets' between sets",
+        "Copying whatever the person next to you does",
+        "Leaving early: ran out of exercises"
+      ]
+    },
+    {
+      "bg": "kenny",
+      "seconds": 3,
+      "lines": [
+        "Been there.",
+        "So I wrote the plan I wish I had."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "Every exercise. Every set. Planned.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Everyone has googled 'how many sets' mid-workout. No judgment. I wrote out every exercise, set and rep so you don't have to guess. Free sample at smuvefitness.net/sample, or the full SMUVE Training Club for $9.99/mo. Link in bio. #beginnergym #gymbeginner #gymtok #gymhumor #smuvefitness",
+  "youtubeTitle": "Tell Me You're New to the Gym Without Telling Me #shorts",
+  "audioVibe": "Playful 'tell me without telling me' trend sound or a bouncy beat, with a soft beat switch when Kenny's photo appears"
+}

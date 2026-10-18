@@ -1,0 +1,48 @@
+{
+  "id": "program-hop-tell-me",
+  "format": "Tell me you... without telling me",
+  "hook": "Tell me you program hop without telling me",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "Tell me you program hop",
+        "without telling me"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 4,
+      "lines": [
+        "Week 1: 'This is THE one'",
+        "Week 2: saw a better split online",
+        "Week 3: 'Okay, THIS is the one'"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3,
+      "lines": [
+        "Programs started: 7",
+        "Programs finished: 0",
+        "Saved workout reels: 214"
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3.5,
+      "lines": [
+        "Want something new every 2 weeks?",
+        "Fine. It's built in.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Week 1 of program number 7 hits different. This plan rotates in a fresh block every two weeks and keeps your main lifts, so you get the new-program itch scratched without starting over. SMUVE Training Club, $9.99 a month, cancel anytime. Link in bio. #gymhumor #gymtok #gymmemes #workoutplan #smuvefitness",
+  "youtubeTitle": "Tell Me You Program Hop Without Telling Me #shorts",
+  "audioVibe": "Punchy 'tell me without telling me' trend sound or a bouncy hip-hop beat, with a hard drop on the red stats card"
+}

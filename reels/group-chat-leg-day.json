@@ -1,0 +1,53 @@
+{
+  "id": "group-chat-leg-day",
+  "format": "Me explaining to my friends",
+  "hook": "Me explaining to the group chat",
+  "scenes": [
+    {
+      "bg": "kenny",
+      "seconds": 3,
+      "lines": [
+        "Me explaining to the group chat",
+        "why I can't go out Thursday"
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 2.5,
+      "lines": [
+        "\"It's leg day.\"",
+        "\"The plan said so.\""
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3.5,
+      "lines": [
+        "Them: what plan??",
+        "Me: it's $9.99 a month",
+        "and it tells me what to do"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 2.5,
+      "lines": [
+        "Them: so you PAY to get bossed around?"
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "Best boss I've ever had.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Sorry guys, my boss said it's leg day 🦵 SMUVE Training Club, $9.99/mo, cancel anytime. Link in bio. #legday #gymhumor #gymtok #groupchat #smuvefitness",
+  "youtubeTitle": "Explaining to My Friends Why I Can't Go Out (Leg Day) #shorts",
+  "audioVibe": "Light, chatty storytelling beat, the playful 'let me explain' trend vibe"
+}

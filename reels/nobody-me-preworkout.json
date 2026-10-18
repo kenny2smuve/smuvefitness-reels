@@ -1,0 +1,52 @@
+{
+  "id": "nobody-me-preworkout",
+  "format": "Nobody: / Me:",
+  "hook": "Nobody:",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 1.5,
+      "lines": [
+        "Nobody:"
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "Me at 1am:",
+        "ordering pre-workout in a 4th flavor"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3,
+      "lines": [
+        "Also me:",
+        "\"$9.99 a month for a plan? hmm\""
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "Fully tingly. Fully hyped.",
+        "Zero idea what to train."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "Now get the actual workout.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Blue raspberry, fruit punch, sour gummy... and zero plan 💀 Get a workout that matches the pre-workout. SMUVE Training Club, $9.99/mo, link in bio. #preworkout #gymhumor #gymtok #fitnessmemes #smuvefitness",
+  "youtubeTitle": "Nobody: / Me Buying Pre-Workout With No Plan #shorts",
+  "audioVibe": "Chaotic hyped trap beat, the 'pre-workout just kicked in' meme energy"
+}

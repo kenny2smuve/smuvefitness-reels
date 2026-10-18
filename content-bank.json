@@ -1,0 +1,1142 @@
+{
+  "generated": "2026-10-18",
+  "note": "Vetted concepts (brand-safety + punch-up pass). Rendered ones are in reels/.",
+  "concepts": [
+    {
+      "id": "program-hop-tell-me",
+      "format": "Tell me you... without telling me",
+      "hook": "Tell me you program hop without telling me",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Tell me you program hop",
+            "without telling me"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 4,
+          "lines": [
+            "Week 1: 'This is THE one'",
+            "Week 2: saw a better split online",
+            "Week 3: 'Okay, THIS is the one'"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3,
+          "lines": [
+            "Programs started: 7",
+            "Programs finished: 0",
+            "Saved workout reels: 214"
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3.5,
+          "lines": [
+            "Want something new every 2 weeks?",
+            "Fine. It's built in.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Week 1 of program number 7 hits different. This plan rotates in a fresh block every two weeks and keeps your main lifts, so you get the new-program itch scratched without starting over. SMUVE Training Club, $9.99 a month, cancel anytime. Link in bio. #gymhumor #gymtok #gymmemes #workoutplan #smuvefitness",
+      "youtubeTitle": "Tell Me You Program Hop Without Telling Me #shorts",
+      "audioVibe": "Punchy 'tell me without telling me' trend sound or a bouncy hip-hop beat, with a hard drop on the red stats card",
+      "verdict": "fixed",
+      "notes": "No violations: text-only cards, no stock people, 8-word hook, correct price wording, brand on the last scene. Punch-up only. (1) Week 3 now calls back Week 1 ('Okay, THIS is the one') where it used to say 'back to Week 1', which was confusing. (2) The red card gets a third beat, 'Saved workout reels: 214'. It runs 3s instead of 2.5s so the third line stays up about 1.2s. (3) The closer was a generic 'Pick one. Finish it.' It now uses something true about the product: the plan rotates in a fresh block every 2 weeks and keeps the main lifts the same (checked on smuvefitness.net), so program hoppers get something new without starting over. Runtime: 12.5s plus the 1.6s end card the renderer adds = 14.1s. Render note for every concept: at meme size (21 chars per row) the brand line wraps to 'SMUVE TRAINING CLUB -' / '$9.99/MO - LINK IN' / 'BIO', leaving 'BIO' alone on a row. Render it with style 'brand' (70px) and it sits on two clean rows."
+    },
+    {
+      "id": "pov-ego-lift-audience",
+      "format": "POV",
+      "hook": "POV: you add plates because someone's watching",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "POV: you add plates",
+            "because someone's watching"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 4,
+          "lines": [
+            "Form: left the chat",
+            "Range of motion: 2 inches",
+            "Spine: filing a complaint"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 2.5,
+          "lines": [
+            "They weren't even looking."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3.5,
+          "lines": [
+            "Follow the plan, not the audience.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "They were on their phone the whole time. Leave the ego at the door and follow a plan with real structure. SMUVE Training Club, $9.99 a month, link in bio. #egolifting #gymhumor #gymtok #liftingmemes #smuvefitness",
+      "youtubeTitle": "POV: You Ego Lift Because Someone's Watching #shorts",
+      "audioVibe": "Dramatic slow-build or suspense trend sound that cuts to dead silence on 'They weren't even looking.'",
+      "verdict": "fixed",
+      "notes": "No violations: text-only cards, no stock people, 7-word hook. The spine line jokes against ego lifting and makes no health claim. Punch-up: 'Train your plan, not your ego' was clunky and didn't pay off the setup. It is now 'Follow the plan, not the audience', which calls back 'someone's watching'. 'Form: left the building' is now 'Form: left the chat', which sounds more like the platform. 12s plus the 1.6s end card = 13.6s. Render the brand line with style 'brand' so 'BIO' doesn't sit alone on a row."
+    },
+    {
+      "id": "nobody-me-gym-anxiety",
+      "format": "Nobody/Me",
+      "hook": "Nobody: / Me walking into a new gym:",
+      "scenes": [
+        {
+          "bg": "card-white",
+          "seconds": 2,
+          "lines": [
+            "Nobody:",
+            "Me walking into a new gym:"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 4.5,
+          "lines": [
+            "Rehearsing 'you using this?' in my head",
+            "Fake-searching for the water fountain",
+            "45 minutes of curls in the corner"
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 2.5,
+          "lines": [
+            "Walk in knowing every set.",
+            "No guessing. No wandering."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "Programs for men and women",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "The water fountain lap counts as cardio, right? A plan makes a new gym way less awkward. Try a free sample workout at smuvefitness.net/sample, or get the full SMUVE Training Club for $9.99/mo. Link in bio. #gymanxiety #gymhumor #beginnergym #gymtok #smuvefitness",
+      "youtubeTitle": "Nobody: Me Walking Into a New Gym #shorts",
+      "audioVibe": "Awkward, quirky tiptoe-style comedic sound or an 'awkward moment' trend audio, then a confident beat switch on the b-roll scene",
+      "verdict": "keep",
+      "notes": "Clean. The 'me' role is text only, and the one b-roll scene carries only the aspirational line ('Walk in knowing every set'), so no stranger is the joke. 7-word hook, correct price wording, the free sample URL matches the brief, and 'programs for men and women' is confirmed on the site. The joke works because the details are specific and relatable. 12s plus the 1.6s end card = 13.6s. Render the brand line with style 'brand' so 'BIO' doesn't sit alone on a row."
+    },
+    {
+      "id": "red-flag-green-flag-split",
+      "format": "Red flag / green flag",
+      "hook": "Gym red flags (be honest):",
+      "scenes": [
+        {
+          "bg": "card-red",
+          "seconds": 4.5,
+          "lines": [
+            "Gym red flags (be honest):",
+            "'Legs? I run sometimes.'",
+            "Monday chest. Tuesday also chest.",
+            "Split: arms, arms, cardio, arms"
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 4.5,
+          "lines": [
+            "Gym green flags:",
+            "Leg day exists. And happens.",
+            "Writes down every set",
+            "Same program longer than 2 weeks"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Be the green flag.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Which one are you? Be honest in the comments. Leg day is in the plan every single week. SMUVE Training Club, $9.99/mo, link in bio. #gymredflags #legday #gymhumor #gymmemes #smuvefitness",
+      "youtubeTitle": "Gym Red Flags vs Green Flags (Be Honest) #shorts",
+      "audioVibe": "Red flag / green flag trend sound, or an upbeat pop beat with a clear sound switch when the green card hits",
+      "verdict": "keep",
+      "notes": "Clean: all text cards, no people or images, 5-word hook, correct price wording, brand on the last scene. The caption says leg day is in the plan every week, and that checks out: the Men's plan is Push/Pull/Legs/Full Body and the Women's plan has several lower-body days. Each flag card has 4 lines revealed 0.9s apart, so the last line stays up 1.8s, which is enough. 'Be honest' plus 'which one are you?' should drive comments. 12s plus the 1.6s end card = 13.6s. Render the brand line with style 'brand' so 'BIO' doesn't sit alone on a row."
+    },
+    {
+      "id": "pov-monday-vs-thursday",
+      "format": "POV",
+      "hook": "POV: it's Monday and every bench is taken",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2.5,
+          "lines": [
+            "POV: it's Monday",
+            "and every bench is taken"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3.5,
+          "lines": [
+            "Thursday:",
+            "Just you, the squat rack",
+            "and one guy curling in it"
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 3,
+          "lines": [
+            "The Thursday crowd:",
+            "No hype. Just a plan."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "Be the Thursday crowd.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "International Chest Day energy is gone by Thursday. A plan sticks around. Which crowd are you? SMUVE Training Club, $9.99 a month, cancel anytime. Link in bio. #mondaymotivation #internationalchestday #gymhumor #gymtok #smuvefitness",
+      "youtubeTitle": "Monday Gym vs Thursday Gym #shorts",
+      "audioVibe": "Loud hype trap beat on the Monday card that cuts to quiet, echoey ambient on the Thursday card, then a steady confident beat on the b-roll",
+      "verdict": "fixed",
+      "notes": "Fixed a violation. The stock b-roll ran under 'POV: it's Monday', which cast a real stranger as the Monday-only crowd that the video then says lacks discipline. The hook now runs on a black card, and the b-roll moves to the aspirational side ('The Thursday crowd: No hype. Just a plan.'), so the pictured person is the one with the plan. Punch-up: the poster-style 'Motivation shows up Monday / Discipline shows up Thursday' is replaced by a Thursday card that ends on 'and one guy curling in it' (text only, no image). The closer is now 'Be the Thursday crowd.' The Thursday card runs 3.5s instead of 3s so the third-line punch stays up 1.7s. The hook is still 8 words. 12s plus the 1.6s end card = 13.6s. Render the brand line with style 'brand' so 'BIO' doesn't sit alone on a row."
+    },
+    {
+      "id": "things-that-just-make-sense-gym",
+      "format": "Things that just make sense",
+      "hook": "Things that just make sense at the gym:",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Things that just make sense",
+            "at the gym:"
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 4.5,
+          "lines": [
+            "Re-racking your weights",
+            "Wiping down the bench",
+            "Writing down your sets"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 2.5,
+          "lines": [
+            "Not planning your workout in the parking lot"
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "Letting someone else write the plan",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Add one in the comments. The last one is the easiest on the list. SMUVE Training Club: structured programs for men and women, $9.99/mo. Link in bio. #gymetiquette #gymtok #gymhumor #workoutplan #smuvefitness",
+      "youtubeTitle": "Things That Just Make Sense at the Gym #shorts",
+      "audioVibe": "Chill, satisfying lo-fi or an 'oddly satisfying' trend sound, with each line popping on the beat",
+      "verdict": "fixed",
+      "notes": "No violations: the b-roll carries only positive etiquette lines, so it stays neutral to aspirational. The 8-word hook is fine. Two fixes. (1) The last scene said the price twice ('Paying $9.99 a month for that plan' plus the brand line), and the end card says it a third time. The twist is now 'Letting someone else write the plan', and the price appears once. The caption's 'the last one is the easiest' still lands. (2) Punch-up: 'Knowing your workout before you walk in' is now 'Not planning your workout in the parking lot', which is more specific and funnier. 12s plus the 1.6s end card = 13.6s. Render the brand line with style 'brand' so 'BIO' doesn't sit alone on a row."
+    },
+    {
+      "id": "tell-me-youre-new-kenny",
+      "format": "Tell me you... without telling me",
+      "hook": "Tell me you're new without telling me",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Tell me you're new",
+            "without telling me"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 4.5,
+          "lines": [
+            "Googling 'how many sets' between sets",
+            "Copying whatever the person next to you does",
+            "Leaving early: ran out of exercises"
+          ]
+        },
+        {
+          "bg": "kenny",
+          "seconds": 3,
+          "lines": [
+            "Been there.",
+            "So I wrote the plan I wish I had."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "Every exercise. Every set. Planned.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Everyone has googled 'how many sets' mid-workout. No judgment. I wrote out every exercise, set and rep so you don't have to guess. Free sample at smuvefitness.net/sample, or the full SMUVE Training Club for $9.99/mo. Link in bio. #beginnergym #gymbeginner #gymtok #gymhumor #smuvefitness",
+      "youtubeTitle": "Tell Me You're New to the Gym Without Telling Me #shorts",
+      "audioVibe": "Playful 'tell me without telling me' trend sound or a bouncy beat, with a soft beat switch when Kenny's photo appears",
+      "verdict": "fixed",
+      "notes": "No violations. Kenny is the positive figure and the new-lifter role is text only. The site backs up 'every exercise, set and rep written out': sets, reps, rest and weights are written out, and Block 1 is paced for beginners. 7-word hook, correct price wording. Punch-up: Kenny's card read 'We all start somewhere. / So I wrote the plan.', which felt like a non sequitur. It now reads 'Been there. / So I wrote the plan I wish I had.', which is personal and earns the pitch. 12.5s plus the 1.6s end card = 14.1s. Render the brand line with style 'brand' so 'BIO' doesn't sit alone on a row."
+    },
+    {
+      "id": "nobody-me-leg-day-excuses",
+      "format": "Nobody/Me",
+      "hook": "Nobody: / Me on leg day:",
+      "scenes": [
+        {
+          "bg": "card-white",
+          "seconds": 2,
+          "lines": [
+            "Nobody:",
+            "Me on leg day:"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 5,
+          "lines": [
+            "'These aren't my leg day shoes'",
+            "'Walking to my car counts'",
+            "'Squat rack's taken. Oh well.'",
+            "'I'll do double next week'"
+          ]
+        },
+        {
+          "bg": "kenny",
+          "seconds": 3,
+          "lines": [
+            "The guy who wrote your leg day:",
+            "'Rack taken? I planned a swap.'"
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "Leg day is already in the plan. Sorry.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "The squat rack was 'taken' three weeks straight. Leg day is already in the plan every week, with a swap ready for when the rack is busy. SMUVE Training Club, $9.99 a month, link in bio. #legday #skiplegday #gymhumor #gymmemes #smuvefitness",
+      "youtubeTitle": "Nobody: Me Finding Excuses to Skip Leg Day #shorts",
+      "audioVibe": "Sneaky tiptoe comedic sound under the excuses, then a record scratch or bass hit when Kenny's photo appears",
+      "verdict": "fixed",
+      "notes": "Three fixes. (1) 'My knee feels kinda weird' treated a possible injury as a fake excuse. That's a bad look for a fitness brand whose site says 'fitness guidance, not medical advice'. Replaced with 'These aren't my leg day shoes'. (2) 'Your coach reading those excuses' over Kenny's photo suggested $9.99 buys a coach who checks in. On the site, check-ins belong to the separate paid coaching tiers. The line is now 'The guy who wrote your leg day:'. (3) Punch-up: Kenny's card adds a comeback to the rack excuse, 'Rack taken? I planned a swap.' This is true of the product, since the plans include swaps for when equipment is busy. 'Leg day every week' checks out for both plans. Timing: the first scene goes from 1.8s to 2s so 'Me on leg day:' is readable, and Kenny's card goes from 2.5s to 3s so its second line stays up. Kenny's photo is a neutral, straight-faced stare, which works as the deadpan reaction. 13s plus the 1.6s end card = 14.6s, still under 15. Render the brand line with style 'brand' so 'BIO' doesn't sit alone on a row."
+    },
+    {
+      "id": "never-used-receipt",
+      "format": "Itemized receipt roast (things I paid for and never used)",
+      "hook": "Things I paid for and never used:",
+      "scenes": [
+        {
+          "bg": "card-white",
+          "seconds": 5.5,
+          "lines": [
+            "Things I paid for and never used:",
+            "Pre-workout. Flavor: regret.",
+            "Resistance bands. Still in the box.",
+            "A 'shred' ebook. Read page 3."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "Me looking at a real gym program:",
+            "\"hmm... kinda pricey\""
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "It's $9.99 a month.",
+            "I owe myself an apology."
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 2.5,
+          "lines": [
+            "SMUVE Training Club",
+            "$9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "In my defense the pre-workout had a cool label 😭 The SMUVE Training Club is $9.99/mo, cancel anytime. Free sample workout at smuvefitness.net/sample #gymhumor #gymtok #fitnessmemes #workoutplan #smuvefitness",
+      "youtubeTitle": "Things I Paid For vs. a $9.99/mo Gym Plan #shorts",
+      "audioVibe": "Slow sad-violin comedy sting under the receipt list, cutting to an upbeat beat on the price reveal",
+      "verdict": "fixed",
+      "notes": "No brand-safety violations: text-only cards, the stock b-roll is only behind the brand line, price wording is correct, hook is 7 words, no emoji on screen. The joke works (self-own, then the price flips it). Fixed readability only: scene 1 has about 23 words over 4 staggered lines, which was too fast at 4s, so it goes to 5.5s. The brand scene is trimmed from 3s to 2.5s. Total is 14s."
+    },
+    {
+      "id": "nobody-me-preworkout",
+      "format": "Nobody: / Me:",
+      "hook": "Nobody:",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 1.5,
+          "lines": [
+            "Nobody:"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Me at 1am:",
+            "ordering pre-workout in a 4th flavor"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3,
+          "lines": [
+            "Also me:",
+            "\"$9.99 a month for a plan? hmm\""
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Fully tingly. Fully hyped.",
+            "Zero idea what to train."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "Now get the actual workout.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Blue raspberry, fruit punch, sour gummy... and zero plan 💀 Get a workout that matches the pre-workout. SMUVE Training Club, $9.99/mo, link in bio. #preworkout #gymhumor #gymtok #fitnessmemes #smuvefitness",
+      "youtubeTitle": "Nobody: / Me Buying Pre-Workout With No Plan #shorts",
+      "audioVibe": "Chaotic hyped trap beat, the 'pre-workout just kicked in' meme energy",
+      "verdict": "fixed",
+      "notes": "Scene 4 switched from first person to third ('a workout he doesn't have') in a 'Me:' meme, so the punchline read wrong. I rewrote it as 'Fully tingly. Fully hyped. / Zero idea what to train.' It stays in first person and plays on the pre-workout tingle everyone knows. There is no product claim. Everything else passes: text-only, price wording is correct, 'Nobody:' lands in 1.5s, total is 13.5s, and the brand is on the last scene."
+    },
+    {
+      "id": "before-after-plan",
+      "format": "Before vs after I had a plan (text cards only)",
+      "hook": "Me before I had a plan:",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 5,
+          "lines": [
+            "Me before I had a plan:",
+            "Googles 'best workout' in the parking lot",
+            "Chest. Biceps. Chest again.",
+            "Legs? Next week. Forever."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 5,
+          "lines": [
+            "Me after I had a plan:",
+            "Walks in already knowing today's workout",
+            "Legs? Tuesday. Non-negotiable.",
+            "Logs it. Leaves. Iconic."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 2,
+          "lines": [
+            "The difference?",
+            "$9.99 a month."
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 2.5,
+          "lines": [
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "The parking lot Google search era is over 🫡 SMUVE Training Club has full programs for men and women. $9.99/mo, cancel anytime. #gymtok #workoutplan #gymbeginner #gymhumor #smuvefitness",
+      "youtubeTitle": "Me Before vs After I Had a Gym Plan #shorts",
+      "audioVibe": "Sad lo-fi for the before, hard beat switch into a confident hype instrumental for the after",
+      "verdict": "fixed",
+      "notes": "This is brand-safe as written. The 'before' is text-only and the 'after' is about behavior, not body results, so there is no results claim. Punch-up: I added a callback line to the after card, 'Legs? Tuesday. Non-negotiable.', which answers 'Legs? Next week. Forever.' and gives the contrast a clear payoff. 'Logs the weight. Leaves. Iconic.' is shortened to 'Logs it. Leaves. Iconic.' The after scene goes to 5s and the price card to 2s. Total is 14.5s."
+    },
+    {
+      "id": "keep-the-kidney",
+      "format": "Expectation vs reality",
+      "hook": "What I thought a gym program costs:",
+      "scenes": [
+        {
+          "bg": "card-white",
+          "seconds": 2.5,
+          "lines": [
+            "What I thought a gym program costs:"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3.5,
+          "lines": [
+            "My tax refund.",
+            "A kidney.",
+            "My firstborn."
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "What it actually costs:"
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3.5,
+          "lines": [
+            "$9.99 a month.",
+            "Keep the kidney. And the kid.",
+            "SMUVE Training Club - link in bio"
+          ]
+        }
+      ],
+      "caption": "You can keep both kidneys 🙏 Structured programs for men and women, $9.99/mo, cancel anytime. Try a free sample at smuvefitness.net/sample #gymtok #fitnessmemes #gymhumor #workoutprogram #smuvefitness",
+      "youtubeTitle": "What I Thought a Gym Program Cost vs Reality #shorts",
+      "audioVibe": "Dramatic orchestral build-up that cuts to silence, then a light comedic ding on the reveal",
+      "verdict": "fixed",
+      "notes": "The hook was right at the 8-word limit, so I cut 'real' to make it 7 words and trimmed the opening card to 2.5s. Punch-up: the list ended on 'tax refund', which fizzled. I reordered it to escalate (tax refund, kidney, firstborn) and extended the payoff to 'Keep the kidney. And the kid.' so it calls back both extremes. The 'sell a kidney' hyperbole is a common, platform-safe joke. Price wording is correct, the brand is on the last scene, and total is 11.5s."
+    },
+    {
+      "id": "group-chat-leg-day",
+      "format": "Me explaining to my friends",
+      "hook": "Me explaining to the group chat",
+      "scenes": [
+        {
+          "bg": "kenny",
+          "seconds": 3,
+          "lines": [
+            "Me explaining to the group chat",
+            "why I can't go out Thursday"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 2.5,
+          "lines": [
+            "\"It's leg day.\"",
+            "\"The plan said so.\""
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3.5,
+          "lines": [
+            "Them: what plan??",
+            "Me: it's $9.99 a month",
+            "and it tells me what to do"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 2.5,
+          "lines": [
+            "Them: so you PAY to get bossed around?"
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "Best boss I've ever had.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Sorry guys, my boss said it's leg day 🦵 SMUVE Training Club, $9.99/mo, cancel anytime. Link in bio. #legday #gymhumor #gymtok #groupchat #smuvefitness",
+      "youtubeTitle": "Explaining to My Friends Why I Can't Go Out (Leg Day) #shorts",
+      "audioVibe": "Light, chatty storytelling beat, the playful 'let me explain' trend vibe",
+      "verdict": "fixed",
+      "notes": "Kenny is the only person shown, so the photo use is fine. Use a photo of him gesturing or explaining. The old ending put 'it tells me what to do' next to 'so it's a gym boyfriend?', which reads a little like a controlling-partner joke and was only an okay punchline. I swapped it for 'Them: so you PAY to get bossed around?' and 'Best boss I've ever had.' That is cleaner, safer and has a stronger twist. The caption now matches the boss angle. Price wording is correct and total is 14.5s."
+    },
+    {
+      "id": "wait-only-how-much",
+      "format": "Wait, it is only...? (double-take)",
+      "hook": "Wait... it's only HOW much??",
+      "scenes": [
+        {
+          "bg": "card-red",
+          "seconds": 2,
+          "lines": [
+            "Wait... it's only HOW much??"
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 4,
+          "lines": [
+            "A full gym program",
+            "Every workout planned for you",
+            "Men's and women's versions",
+            "Cancel anytime"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 2.5,
+          "lines": [
+            "$9.99 a month.",
+            "Not a typo. Read it again."
+          ]
+        },
+        {
+          "bg": "kenny",
+          "seconds": 3,
+          "lines": [
+            "Yes. On purpose.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Not a typo 🤝 $9.99/mo, cancel anytime. Want to try it first? Free sample workout at smuvefitness.net/sample #gymtok #workoutprogram #gymbeginner #fitnessmemes #smuvefitness",
+      "youtubeTitle": "Wait... A Full Gym Program Is Only HOW Much? #shorts",
+      "audioVibe": "Record-scratch double-take into a smooth, confident R&B beat",
+      "verdict": "fixed",
+      "notes": "This is compliant. The stock b-roll sits behind neutral feature text, and the feature list matches what the product actually is, with no results claims. The feature card had 4 lines in 3.5s, so it goes to 4s. Small punch-up: 'Not a typo.' becomes 'Not a typo. Read it again.' for a more meme-like voice, and Kenny's 'Yes. On purpose.' closes it well. Total is 11.5s. Editor's flag: this is the most ad-like concept in the batch and the least meme-like. Use it as a price-reveal or retargeting post, not as a lead awareness post."
+    },
+    {
+      "id": "gym-red-flags",
+      "format": "Red flags vs green flag",
+      "hook": "Gym red flags:",
+      "scenes": [
+        {
+          "bg": "card-red",
+          "seconds": 5.5,
+          "lines": [
+            "Gym red flags:",
+            "\"I just do whatever I feel like\"",
+            "Day 1 of a new split. Again.",
+            "Copies whatever the biggest guy is doing."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 2.5,
+          "lines": [
+            "Green flag:",
+            "Has a plan. Actually follows it."
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "And the green flag costs..."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "$9.99 a month.",
+            "SMUVE Training Club - link in bio"
+          ]
+        }
+      ],
+      "caption": "If you've started a new split 3 Mondays in a row, this is your sign 🚩➡️✅ SMUVE Training Club: $9.99/mo, cancel anytime. #gymredflags #gymhumor #gymtok #fitnessmemes #smuvefitness",
+      "youtubeTitle": "Gym Red Flags vs The One Green Flag #shorts",
+      "audioVibe": "Playful, slightly ominous beat under the red flags with a bass drop when the green flag hits (any generic beat, not a specific trending track)",
+      "verdict": "fixed",
+      "notes": "The red flags are text-only and no person is shown, so it is brand-safe. Fixes: (1) Scene 1 had about 23 words in 4s, so it goes to 5.5s. (2) 'Saves 200 workout reels. Does 0.' duplicated the starter-pack concept's saved-reels joke, so I replaced it with the relatable 'Copies whatever the biggest guy is doing.' (3) The green flag was punched up from 'Has an actual plan.' to 'Has a plan. Actually follows it.' (4) The audio vibe was reworded so it no longer points at a specific 'red flag' trending song. Price wording is correct and total is 13s."
+    },
+    {
+      "id": "program-hopper-starter-pack",
+      "format": "Starter pack",
+      "hook": "Program hopper starter pack:",
+      "scenes": [
+        {
+          "bg": "card-white",
+          "seconds": 4.5,
+          "lines": [
+            "Program hopper starter pack:",
+            "47 saved 'best workout' reels",
+            "\"This new split is THE one\"",
+            "Calves: untouched since 2022"
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 3,
+          "lines": [
+            "The fix isn't reel #48.",
+            "It's one plan you stick to."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "$9.99 a month.",
+            "SMUVE Training Club - link in bio"
+          ]
+        }
+      ],
+      "caption": "Be honest, how many workout reels are in your saved folder right now? 👀 Stop hopping. SMUVE Training Club, $9.99/mo, cancel anytime. #programhopping #gymtok #gymhumor #workoutplan #smuvefitness",
+      "youtubeTitle": "Program Hopper Starter Pack (Be Honest) #shorts",
+      "audioVibe": "Upbeat starter-pack slideshow vibe with a ding as each item pops in",
+      "verdict": "fixed",
+      "notes": "This is compliant. The starter-pack items are text-only on a white card and the stock b-roll is neutral and aspirational. Punch-up: 'The fix isn't another reel.' read as preachy, so it becomes 'The fix isn't reel #48.' as a callback to the 47 saved reels. The '47' and '2022' are joke details, not member or results numbers. This concept now owns the saved-reels joke; it was removed from gym-red-flags. Total is 10.5s and the brand is on the last scene."
+    },
+    {
+      "id": "day-1-vs-day-60-plan",
+      "format": "Day 1 vs Day 60",
+      "hook": "Day 1 vs Day 60 on a plan",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Day 1 vs Day 60",
+            "on a plan"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3.5,
+          "lines": [
+            "DAY 1:",
+            "Stares at the cable machine",
+            "Googles 'what does this do'",
+            "Does curls. Goes home."
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3.5,
+          "lines": [
+            "DAY 60:",
+            "Walks in knowing the exact workout",
+            "Logs every set",
+            "Hasn't Googled a machine in weeks"
+          ]
+        },
+        {
+          "bg": "broll-neutral",
+          "seconds": 3,
+          "lines": [
+            "Same gym. Different plan.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Day 1 you're googling the cable machine. Day 60 you just know what's next. It isn't talent, it's having a plan. SMUVE Training Club, $9.99/mo, cancel anytime. Link in bio. #gymtok #gymhumor #beginnergym #workoutplan #smuvefitness",
+      "youtubeTitle": "Day 1 vs Day 60 of Actually Having a Gym Plan #shorts",
+      "audioVibe": "Beat switch: awkward muted lo-fi under Day 1, then a bass drop when the Day 60 card hits",
+      "verdict": "fixed",
+      "notes": "Hook was 9-10 words; cut to 8 ('Day 1 vs Day 60 on a plan') and scene 1 changed to match. Punch-up: Day 60's weak 'Zero wandering' became 'Hasn't Googled a machine in weeks', which calls back the Day 1 Googling joke. Brand safety: no stock person is the butt of the joke (both roles are text cards, and the b-roll is neutral). Day 60 describes habits only, with no body or weight change, so no results are implied. Keep it that way in any future version of this format. 12s total, brand on the last scene."
+    },
+    {
+      "id": "rating-gym-excuses",
+      "format": "Rating gym excuses out of 10",
+      "hook": "Rating your gym excuses out of 10",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Rating your gym excuses",
+            "out of 10"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "\"It's raining\"",
+            "0/10. The gym has a roof."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "\"I'll start Monday\"",
+            "1/10. You said that 6 Mondays ago."
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3.5,
+          "lines": [
+            "\"I don't know what to do there\"",
+            "10/10. Honestly valid.",
+            "Also very fixable."
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Excuse removed.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Only one of these is a real excuse, and it has a fix. Rate your own excuse in the comments. SMUVE Training Club is a structured plan for men and women, $9.99/mo. Link in bio. #gymtok #gymexcuses #gymmemes #fitnesshumor #smuvefitness",
+      "youtubeTitle": "Rating Your Gym Excuses Out of 10 (Be Honest) #shorts",
+      "audioVibe": "Deadpan game-show judge panel, with a ding or buzzer on each score",
+      "verdict": "fixed",
+      "notes": "Health fix: a 2/10 score for 'It's leg day and I feel sick' tells people to train while ill, which a fitness brand shouldn't joke about. Swapped in '\"It's raining\" / 0/10. The gym has a roof.', which lands harder anyway. Scene 4 has 3 lines and about 12 words, so it went from 3s to 3.5s to give time to read it. New total is 14.5s, still under 15. Price wording, the brand on the last scene and the hook (6 words) are all fine."
+    },
+    {
+      "id": "three-types-gym-people",
+      "format": "The 3 types of people at the gym",
+      "hook": "The 3 types of people at the gym",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "The 3 types of people",
+            "at the gym"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3,
+          "lines": [
+            "TYPE 1: The Tourist",
+            "Visits every machine",
+            "Commits to none"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3,
+          "lines": [
+            "TYPE 2: The Program Hopper",
+            "New program every Monday",
+            "Restarts week 1 forever"
+          ]
+        },
+        {
+          "bg": "card-green",
+          "seconds": 3,
+          "lines": [
+            "TYPE 3: The One With a Plan",
+            "Walks in. Does the workout.",
+            "Leaves. Unbothered."
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Become type 3.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Tag the program hopper in your life (it might be you). SMUVE Training Club hands you the plan so you can be type 3. $9.99/mo, cancel anytime. #gymtok #gymtypes #gymhumor #programhopping #smuvefitness",
+      "youtubeTitle": "The 3 Types of People at Every Gym #shorts",
+      "audioVibe": "Bouncy character-intro sound with a whoosh on each type reveal",
+      "verdict": "fixed",
+      "notes": "No violations. Every type is a text card, so no stock stranger stands in for a negative type. Punch-up: The Tourist's 'New machine every 4 minutes / Not sure why' was the weakest beat; it became 'Visits every machine / Commits to none'. Hook is 8 words, total is 14s, and the brand is on the last scene."
+    },
+    {
+      "id": "say-vs-mean-gym",
+      "format": "What I say vs what I mean",
+      "hook": "Things I say at the gym, translated",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Things I say at the gym,",
+            "translated"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "SAY: \"Light day today\"",
+            "MEAN: I have no plan"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "SAY: \"Just feeling it out\"",
+            "MEAN: I have no plan"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "SAY: \"I train intuitively\"",
+            "MEAN: No plan, but make it a personality"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Full translation: you need a plan.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Translation: we've all been there. If 'light day' is doing a lot of heavy lifting, grab the plan. SMUVE Training Club, $9.99 a month. Link in bio. #gymtok #gymmemes #whatisayvswhatimean #gymhumor #smuvefitness",
+      "youtubeTitle": "What I Say at the Gym vs What I Actually Mean #shorts",
+      "audioVibe": "Sarcastic plucky pizzicato, with a comedic sting on every MEAN line",
+      "verdict": "fixed",
+      "notes": "Hook was 10 words, too slow for 1.5s. Rewrote it to 7: 'Things I say at the gym, translated'. The SAY/MEAN format stays, and the caption's 'Translation:' opener now ties in. Punch-up: the third beat repeated 'I really have no plan'; it now breaks the pattern with 'No plan, but make it a personality'. The weak closer 'Fix the MEAN part.' became 'Full translation: you need a plan.', a callback to the hook. All text cards, total is 14s, the brand is on the last scene, and '$9.99 a month' is a valid price wording."
+    },
+    {
+      "id": "this-or-that-gym",
+      "format": "This or That",
+      "hook": "This or that: gym edition. Go.",
+      "scenes": [
+        {
+          "bg": "broll-neutral",
+          "seconds": 2,
+          "lines": [
+            "This or that:",
+            "gym edition. Go."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 2.5,
+          "lines": [
+            "Morning lift",
+            "or",
+            "night lift?"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 2.5,
+          "lines": [
+            "Headphones in",
+            "or",
+            "gym small talk?"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3,
+          "lines": [
+            "Winging it (free, and it shows)",
+            "or",
+            "A real plan ($9.99/mo)?"
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Comment your answers.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Drop your answers 1-2-3 in the comments. We already know the right answer for number 3. SMUVE Training Club, $9.99/mo, cancel anytime. #gymtok #thisorthat #gymlife #gymhumor #smuvefitness",
+      "youtubeTitle": "Gym This or That: Which One Are You? #shorts",
+      "audioVibe": "Fast ticking-clock quick-choice beat with a snap on each question",
+      "verdict": "fixed",
+      "notes": "Caption bug: '#3' would show up as a clickable hashtag on IG and TikTok. Changed it to 'number 3'. Punch-up: 'Winging it (free)' became 'Winging it (free, and it shows)', so the brand punchline gets a real joke instead of a straight price comparison. The opening b-roll is neutral (no stranger in a negative role). Price wording is correct, the hook is 6 words, total is 13s, and the brand is on the last scene."
+    },
+    {
+      "id": "gym-quiz-need-a-plan",
+      "format": "Fake quiz (answer honestly)",
+      "hook": "Quick gym quiz. Answer honestly.",
+      "scenes": [
+        {
+          "bg": "broll-neutral",
+          "seconds": 1.5,
+          "lines": [
+            "Quick gym quiz.",
+            "Answer honestly."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "Q1: Did you pick today's workout",
+            "in the parking lot?"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "Q2: Have you switched programs",
+            "this month?"
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "Q3: Is your plan",
+            "\"whatever machine is open\"?"
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 3.5,
+          "lines": [
+            "Your score: irrelevant.",
+            "You need a plan.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Be honest: how many yeses? No judgment, just a plan. Try the free 8-exercise sample at smuvefitness.net/sample or go full SMUVE Training Club for $9.99/mo. #gymtok #gymquiz #beginnergym #workoutplan #smuvefitness",
+      "youtubeTitle": "Quick Gym Quiz: Do You Actually Need a Plan? #shorts",
+      "audioVibe": "Game-show quiz music with a buzzer on the final score reveal",
+      "verdict": "fixed",
+      "notes": "Logic fix: in Q1 ('Do you know today's workout before you walk in?') YES was the good answer, but in Q2 and Q3 YES was the bad one, so the quiz didn't score consistently. Rewrote Q1 as 'Did you pick today's workout in the parking lot?', which makes every YES a fail and is funnier. The caption now asks 'how many yeses?' to match. Punch-up: the result line is now 'Your score: irrelevant. / You need a plan.' The opening b-roll is neutral. Total is 14s, price wording is correct, and the brand is on the last scene. The caption also pushes the free sample, which is good for top-of-funnel viewers."
+    },
+    {
+      "id": "unpopular-opinion-not-lazy",
+      "format": "Unpopular opinion",
+      "hook": "Unpopular opinion: you're not lazy.",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Unpopular opinion:",
+            "you're not lazy."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 3,
+          "lines": [
+            "You're unprepared.",
+            "No plan, so you leave",
+            "the second you run out of ideas."
+          ]
+        },
+        {
+          "bg": "kenny",
+          "seconds": 3,
+          "lines": [
+            "Motivation comes and goes.",
+            "A plan shows up anyway."
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3,
+          "lines": [
+            "Stop winging it.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "Hot take, but hear me out: most people don't need more motivation, they need to know what to do when they walk in. That's the whole point of SMUVE Training Club. $9.99/mo, cancel anytime. #gymtok #unpopularopinion #gymmotivation #workoutplan #smuvefitness",
+      "youtubeTitle": "Unpopular Opinion: You're Not Lazy, You Just Have No Plan #shorts",
+      "audioVibe": "Serious slowed-reverb 'deep talk' piano that turns calm and confident on the Kenny scene",
+      "verdict": "fixed",
+      "notes": "No violations. Kenny appears in a positive, aspirational role, the price is correct, total is 11s, and the brand is on the last scene. Punch-up: scene 2 ('You just walk in / with zero plan / and wing it every time') restated the setup without a turn. It now says 'You're unprepared. / No plan, so you leave / the second you run out of ideas.' That gives a clear reframe (unprepared, not lazy) and a relatable image, and it doesn't contradict the 'not lazy' claim. The Kenny line is strong, so it stays as is."
+    },
+    {
+      "id": "storytime-every-beginner",
+      "format": "Storytime in 3 lines",
+      "hook": "Storytime: every beginner, in 3 lines.",
+      "scenes": [
+        {
+          "bg": "card-black",
+          "seconds": 2,
+          "lines": [
+            "Storytime:",
+            "every beginner, in 3 lines."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 2.5,
+          "lines": [
+            "1. Signs up in January."
+          ]
+        },
+        {
+          "bg": "card-white",
+          "seconds": 2.5,
+          "lines": [
+            "2. Copies random workouts for 3 weeks."
+          ]
+        },
+        {
+          "bg": "card-red",
+          "seconds": 2.5,
+          "lines": [
+            "3. \"The gym just isn't for me.\""
+          ]
+        },
+        {
+          "bg": "card-black",
+          "seconds": 3.5,
+          "lines": [
+            "Plot twist: it was.",
+            "The plan just wasn't there.",
+            "SMUVE Training Club - $9.99/mo - link in bio"
+          ]
+        }
+      ],
+      "caption": "If this is your story, the sequel goes differently with a plan. SMUVE Training Club: structured workouts for men and women, $9.99/mo. Free 8-exercise sample at smuvefitness.net/sample. #gymtok #storytime #beginnergym #gymhumor #smuvefitness",
+      "youtubeTitle": "Every Beginner's Gym Story in 3 Lines #shorts",
+      "audioVibe": "Soft sad-storytime piano that cuts to an upbeat drop on the plot twist",
+      "verdict": "keep",
+      "notes": "Passes every check. The 'before' story is told only on text cards, with no stock person in it. The hook is 6 words, total is 13s, price wording is correct, and the brand is on the last scene, which has 3 lines in 3.5s. 'Plot twist: it was' and the caption's 'the sequel goes differently' suggest a plan helps without promising results, so the claims are fine. The structure is tight and the twist lands, so no punch-up is needed."
+    }
+  ],
+  "cut": []
+}

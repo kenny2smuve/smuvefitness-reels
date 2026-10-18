@@ -1,0 +1,50 @@
+{
+  "id": "never-used-receipt",
+  "format": "Itemized receipt roast (things I paid for and never used)",
+  "hook": "Things I paid for and never used:",
+  "scenes": [
+    {
+      "bg": "card-white",
+      "seconds": 5.5,
+      "lines": [
+        "Things I paid for and never used:",
+        "Pre-workout. Flavor: regret.",
+        "Resistance bands. Still in the box.",
+        "A 'shred' ebook. Read page 3."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "Me looking at a real gym program:",
+        "\"hmm... kinda pricey\""
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "It's $9.99 a month.",
+        "I owe myself an apology."
+      ]
+    },
+    {
+      "bg": "broll-neutral",
+      "seconds": 2.5,
+      "lines": [
+        {
+          "text": "SMUVE Training Club",
+          "style": "brand"
+        },
+        {
+          "text": "$9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "In my defense the pre-workout had a cool label 😭 The SMUVE Training Club is $9.99/mo, cancel anytime. Free sample workout at smuvefitness.net/sample #gymhumor #gymtok #fitnessmemes #workoutplan #smuvefitness",
+  "youtubeTitle": "Things I Paid For vs. a $9.99/mo Gym Plan #shorts",
+  "audioVibe": "Slow sad-violin comedy sting under the receipt list, cutting to an upbeat beat on the price reveal"
+}

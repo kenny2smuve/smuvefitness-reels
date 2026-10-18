@@ -1,0 +1,39 @@
+{
+  "id": "program-hopper-starter-pack",
+  "format": "Starter pack",
+  "hook": "Program hopper starter pack:",
+  "scenes": [
+    {
+      "bg": "card-white",
+      "seconds": 4.5,
+      "lines": [
+        "Program hopper starter pack:",
+        "47 saved 'best workout' reels",
+        "\"This new split is THE one\"",
+        "Calves: untouched since 2022"
+      ]
+    },
+    {
+      "bg": "broll-neutral",
+      "seconds": 3,
+      "lines": [
+        "The fix isn't reel #48.",
+        "It's one plan you stick to."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "$9.99 a month.",
+        {
+          "text": "SMUVE Training Club - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Be honest, how many workout reels are in your saved folder right now? 👀 Stop hopping. SMUVE Training Club, $9.99/mo, cancel anytime. #programhopping #gymtok #gymhumor #workoutplan #smuvefitness",
+  "youtubeTitle": "Program Hopper Starter Pack (Be Honest) #shorts",
+  "audioVibe": "Upbeat starter-pack slideshow vibe with a ding as each item pops in"
+}

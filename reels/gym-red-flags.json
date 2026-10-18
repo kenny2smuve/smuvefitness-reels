@@ -1,0 +1,46 @@
+{
+  "id": "gym-red-flags",
+  "format": "Red flags vs green flag",
+  "hook": "Gym red flags:",
+  "scenes": [
+    {
+      "bg": "card-red",
+      "seconds": 5.5,
+      "lines": [
+        "Gym red flags:",
+        "\"I just do whatever I feel like\"",
+        "Day 1 of a new split. Again.",
+        "Copies whatever the biggest guy is doing."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 2.5,
+      "lines": [
+        "Green flag:",
+        "Has a plan. Actually follows it."
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "And the green flag costs..."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "$9.99 a month.",
+        {
+          "text": "SMUVE Training Club - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "If you've started a new split 3 Mondays in a row, this is your sign 🚩➡️✅ SMUVE Training Club: $9.99/mo, cancel anytime. #gymredflags #gymhumor #gymtok #fitnessmemes #smuvefitness",
+  "youtubeTitle": "Gym Red Flags vs The One Green Flag #shorts",
+  "audioVibe": "Playful, slightly ominous beat under the red flags with a bass drop when the green flag hits (any generic beat, not a specific trending track)"
+}

@@ -1,0 +1,46 @@
+{
+  "id": "unpopular-opinion-not-lazy",
+  "format": "Unpopular opinion",
+  "hook": "Unpopular opinion: you're not lazy.",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "Unpopular opinion:",
+        "you're not lazy."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "You're unprepared.",
+        "No plan, so you leave",
+        "the second you run out of ideas."
+      ]
+    },
+    {
+      "bg": "kenny",
+      "seconds": 3,
+      "lines": [
+        "Motivation comes and goes.",
+        "A plan shows up anyway."
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "Stop winging it.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Hot take, but hear me out: most people don't need more motivation, they need to know what to do when they walk in. That's the whole point of SMUVE Training Club. $9.99/mo, cancel anytime. #gymtok #unpopularopinion #gymmotivation #workoutplan #smuvefitness",
+  "youtubeTitle": "Unpopular Opinion: You're Not Lazy, You Just Have No Plan #shorts",
+  "audioVibe": "Serious slowed-reverb 'deep talk' piano that turns calm and confident on the Kenny scene"
+}

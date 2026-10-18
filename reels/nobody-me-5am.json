@@ -1,0 +1,17 @@
+{
+  "id": "nobody-me-5am",
+  "format": "Nobody: / Me:",
+  "hook": "Nobody:",
+  "scenes": [
+    { "bg": "card-black", "seconds": 1.4, "lines": [ { "text": "Nobody:", "style": "big", "at": 0 } ] },
+    { "bg": "broll-neutral", "seconds": 3.6, "pos": "top", "lines": [
+      { "text": "Me at 5:30am because the plan said back day", "style": "meme", "at": 0 },
+      { "text": "(I didn't have to think. at all.)", "style": "small", "at": 1.6 } ] },
+    { "bg": "broll-neutral", "seconds": 2.4, "lines": [
+      { "text": "zero guessing.", "style": "meme", "at": 0 },
+      { "text": "just lifting.", "style": "meme", "at": 0.8 } ] }
+  ],
+  "caption": "When the plan already decided, you just show up. SMUVE Training Club, $9.99/mo. Link in bio. #gymmotivation #gymtok #5amclub #workoutplan #smuvefitness",
+  "youtubeTitle": "Nobody: Me at 5:30am because the plan said back day #shorts",
+  "audioVibe": "early-morning lo-fi into hard beat"
+}

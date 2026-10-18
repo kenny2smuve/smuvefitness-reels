@@ -1,0 +1,54 @@
+{
+  "id": "gym-quiz-need-a-plan",
+  "format": "Fake quiz (answer honestly)",
+  "hook": "Quick gym quiz. Answer honestly.",
+  "scenes": [
+    {
+      "bg": "broll-neutral",
+      "seconds": 1.5,
+      "lines": [
+        "Quick gym quiz.",
+        "Answer honestly."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "Q1: Did you pick today's workout",
+        "in the parking lot?"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "Q2: Have you switched programs",
+        "this month?"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "Q3: Is your plan",
+        "\"whatever machine is open\"?"
+      ]
+    },
+    {
+      "bg": "card-red",
+      "seconds": 3.5,
+      "lines": [
+        "Your score: irrelevant.",
+        "You need a plan.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Be honest: how many yeses? No judgment, just a plan. Try the free 8-exercise sample at smuvefitness.net/sample or go full SMUVE Training Club for $9.99/mo. #gymtok #gymquiz #beginnergym #workoutplan #smuvefitness",
+  "youtubeTitle": "Quick Gym Quiz: Do You Actually Need a Plan? #shorts",
+  "audioVibe": "Game-show quiz music with a buzzer on the final score reveal"
+}

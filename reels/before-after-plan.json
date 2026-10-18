@@ -1,0 +1,48 @@
+{
+  "id": "before-after-plan",
+  "format": "Before vs after I had a plan (text cards only)",
+  "hook": "Me before I had a plan:",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 5,
+      "lines": [
+        "Me before I had a plan:",
+        "Googles 'best workout' in the parking lot",
+        "Chest. Biceps. Chest again.",
+        "Legs? Next week. Forever."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 5,
+      "lines": [
+        "Me after I had a plan:",
+        "Walks in already knowing today's workout",
+        "Legs? Tuesday. Non-negotiable.",
+        "Logs it. Leaves. Iconic."
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 2,
+      "lines": [
+        "The difference?",
+        "$9.99 a month."
+      ]
+    },
+    {
+      "bg": "broll-neutral",
+      "seconds": 2.5,
+      "lines": [
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "The parking lot Google search era is over 🫡 SMUVE Training Club has full programs for men and women. $9.99/mo, cancel anytime. #gymtok #workoutplan #gymbeginner #gymhumor #smuvefitness",
+  "youtubeTitle": "Me Before vs After I Had a Gym Plan #shorts",
+  "audioVibe": "Sad lo-fi for the before, hard beat switch into a confident hype instrumental for the after"
+}

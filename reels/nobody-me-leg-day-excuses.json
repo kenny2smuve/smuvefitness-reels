@@ -1,0 +1,47 @@
+{
+  "id": "nobody-me-leg-day-excuses",
+  "format": "Nobody/Me",
+  "hook": "Nobody: / Me on leg day:",
+  "scenes": [
+    {
+      "bg": "card-white",
+      "seconds": 2,
+      "lines": [
+        "Nobody:",
+        "Me on leg day:"
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 5,
+      "lines": [
+        "'These aren't my leg day shoes'",
+        "'Walking to my car counts'",
+        "'Squat rack's taken. Oh well.'",
+        "'I'll do double next week'"
+      ]
+    },
+    {
+      "bg": "kenny",
+      "seconds": 3,
+      "lines": [
+        "The guy who wrote your leg day:",
+        "'Rack taken? I planned a swap.'"
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "Leg day is already in the plan. Sorry.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "The squat rack was 'taken' three weeks straight. Leg day is already in the plan every week, with a swap ready for when the rack is busy. SMUVE Training Club, $9.99 a month, link in bio. #legday #skiplegday #gymhumor #gymmemes #smuvefitness",
+  "youtubeTitle": "Nobody: Me Finding Excuses to Skip Leg Day #shorts",
+  "audioVibe": "Sneaky tiptoe comedic sound under the excuses, then a record scratch or bass hit when Kenny's photo appears"
+}

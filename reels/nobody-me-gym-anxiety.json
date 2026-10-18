@@ -1,0 +1,46 @@
+{
+  "id": "nobody-me-gym-anxiety",
+  "format": "Nobody/Me",
+  "hook": "Nobody: / Me walking into a new gym:",
+  "scenes": [
+    {
+      "bg": "card-white",
+      "seconds": 2,
+      "lines": [
+        "Nobody:",
+        "Me walking into a new gym:"
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 4.5,
+      "lines": [
+        "Rehearsing 'you using this?' in my head",
+        "Fake-searching for the water fountain",
+        "45 minutes of curls in the corner"
+      ]
+    },
+    {
+      "bg": "broll-neutral",
+      "seconds": 2.5,
+      "lines": [
+        "Walk in knowing every set.",
+        "No guessing. No wandering."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "Programs for men and women",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "The water fountain lap counts as cardio, right? A plan makes a new gym way less awkward. Try a free sample workout at smuvefitness.net/sample, or get the full SMUVE Training Club for $9.99/mo. Link in bio. #gymanxiety #gymhumor #beginnergym #gymtok #smuvefitness",
+  "youtubeTitle": "Nobody: Me Walking Into a New Gym #shorts",
+  "audioVibe": "Awkward, quirky tiptoe-style comedic sound or an 'awkward moment' trend audio, then a confident beat switch on the b-roll scene"
+}

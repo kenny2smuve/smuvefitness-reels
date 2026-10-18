@@ -1,0 +1,19 @@
+{
+  "id": "costs-more-than",
+  "format": "Things that cost more than...",
+  "hook": "Things that cost more than my workout plan:",
+  "scenes": [
+    { "bg": "card-white", "seconds": 5.2, "pos": "top", "revealGap": 0.95, "lines": [
+      { "text": "Things that cost more than my workout plan:", "style": "label", "at": 0 },
+      { "text": "1 smoothie", "style": "label" },
+      { "text": "2 iced lattes", "style": "label" },
+      { "text": "the pre-workout you took before scrolling for an hour", "style": "label" },
+      { "text": "the gym membership you're not using", "style": "label" } ] },
+    { "bg": "broll-neutral", "seconds": 2.6, "lines": [
+      { "text": "the plan:", "style": "meme", "at": 0 },
+      { "text": "$9.99/mo", "style": "big", "at": 0.7 } ] }
+  ],
+  "caption": "Cheaper than your coffee habit and it actually tells you what to lift. SMUVE Training Club, $9.99 a month. Link in bio. #gymtok #gymhumor #workoutplan #fitnesstips #smuvefitness",
+  "youtubeTitle": "Things that cost more than my $9.99 workout plan #shorts",
+  "audioVibe": "light upbeat list sound, hit on '$9.99/mo'"
+}

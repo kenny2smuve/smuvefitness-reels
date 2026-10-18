@@ -1,0 +1,46 @@
+{
+  "id": "pov-monday-vs-thursday",
+  "format": "POV",
+  "hook": "POV: it's Monday and every bench is taken",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2.5,
+      "lines": [
+        "POV: it's Monday",
+        "and every bench is taken"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3.5,
+      "lines": [
+        "Thursday:",
+        "Just you, the squat rack",
+        "and one guy curling in it"
+      ]
+    },
+    {
+      "bg": "broll-neutral",
+      "seconds": 3,
+      "lines": [
+        "The Thursday crowd:",
+        "No hype. Just a plan."
+      ]
+    },
+    {
+      "bg": "card-green",
+      "seconds": 3,
+      "lines": [
+        "Be the Thursday crowd.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "International Chest Day energy is gone by Thursday. A plan sticks around. Which crowd are you? SMUVE Training Club, $9.99 a month, cancel anytime. Link in bio. #mondaymotivation #internationalchestday #gymhumor #gymtok #smuvefitness",
+  "youtubeTitle": "Monday Gym vs Thursday Gym #shorts",
+  "audioVibe": "Loud hype trap beat on the Monday card that cuts to quiet, echoey ambient on the Thursday card, then a steady confident beat on the b-roll"
+}

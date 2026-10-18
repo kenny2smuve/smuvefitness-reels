@@ -1,0 +1,53 @@
+{
+  "id": "say-vs-mean-gym",
+  "format": "What I say vs what I mean",
+  "hook": "Things I say at the gym, translated",
+  "scenes": [
+    {
+      "bg": "card-black",
+      "seconds": 2,
+      "lines": [
+        "Things I say at the gym,",
+        "translated"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "SAY: \"Light day today\"",
+        "MEAN: I have no plan"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "SAY: \"Just feeling it out\"",
+        "MEAN: I have no plan"
+      ]
+    },
+    {
+      "bg": "card-white",
+      "seconds": 3,
+      "lines": [
+        "SAY: \"I train intuitively\"",
+        "MEAN: No plan, but make it a personality"
+      ]
+    },
+    {
+      "bg": "card-black",
+      "seconds": 3,
+      "lines": [
+        "Full translation: you need a plan.",
+        {
+          "text": "SMUVE Training Club - $9.99/mo - link in bio",
+          "style": "brand"
+        }
+      ]
+    }
+  ],
+  "caption": "Translation: we've all been there. If 'light day' is doing a lot of heavy lifting, grab the plan. SMUVE Training Club, $9.99 a month. Link in bio. #gymtok #gymmemes #whatisayvswhatimean #gymhumor #smuvefitness",
+  "youtubeTitle": "What I Say at the Gym vs What I Actually Mean #shorts",
+  "audioVibe": "Sarcastic plucky pizzicato, with a comedic sting on every MEAN line"
+}
