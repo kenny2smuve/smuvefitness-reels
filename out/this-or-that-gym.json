@@ -3,7 +3,7 @@
   "file": "out/this-or-that-gym.mp4",
   "seconds": 11.8,
   "fittedToMax": true,
-  "frame1Std": 55.7,
+  "frame1Std": 55.8,
   "format": "This or That",
   "auditFormat": "overlay",
   "hook": "This or that: gym edition. Go.",

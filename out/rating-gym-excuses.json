@@ -3,7 +3,7 @@
   "file": "out/rating-gym-excuses.mp4",
   "seconds": 11.8,
   "fittedToMax": true,
-  "frame1Std": 70.7,
+  "frame1Std": 70.6,
   "format": "Rating gym excuses out of 10",
   "auditFormat": "overlay",
   "hook": "Rating your gym excuses out of 10",

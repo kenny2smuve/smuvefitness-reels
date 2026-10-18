@@ -3,7 +3,7 @@
   "file": "out/never-used-receipt.mp4",
   "seconds": 11.77,
   "fittedToMax": true,
-  "frame1Std": 78,
+  "frame1Std": 77.7,
   "format": "Itemized receipt roast (things I paid for and never used)",
   "auditFormat": "overlay",
   "hook": "Things I paid for and never used:",

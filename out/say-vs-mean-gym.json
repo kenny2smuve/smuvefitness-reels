@@ -3,7 +3,7 @@
   "file": "out/say-vs-mean-gym.mp4",
   "seconds": 11.73,
   "fittedToMax": true,
-  "frame1Std": 71.5,
+  "frame1Std": 71.4,
   "format": "What I say vs what I mean",
   "auditFormat": "overlay",
   "hook": "Things I say at the gym, translated",
