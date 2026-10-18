@@ -105,6 +105,9 @@ DEFAULT_ALIASES: dict[str, str] = {
 }
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# Excel "CSV UTF-8" on Windows prefixes the file with a byte-order mark; it must never
+# become part of the first column name ("﻿hook" would hide every burned hook).
+_BOM = "﻿"
 
 
 class LedgerError(ValueError):
@@ -129,8 +132,25 @@ def _read_header(p: Path) -> list[str] | None:
         return None
     with open(p, "r", encoding="utf-8", newline="") as f:
         for row in csv.reader(f):
-            return [c.strip() for c in row]
+            cells = [c.strip() for c in row]
+            if cells:
+                cells[0] = cells[0].lstrip(_BOM)
+            return cells
     return None
+
+
+def _strip_bom_key(k: str | None) -> str | None:
+    if isinstance(k, str) and k.startswith(_BOM):
+        return k.lstrip(_BOM)
+    return k
+
+
+def _assert_canonical_header(name: str, p: Path) -> None:
+    """Refuse to write into a ledger whose on-disk header differs from the schema: a row
+    appended under the wrong columns reads back misaligned (a burned hook looks unburned)."""
+    existing = _read_header(p)
+    if existing is not None and existing != HEADERS[name]:
+        raise LedgerError(f"{name}.csv header is not canonical ({existing}); run migrate first")
 
 
 def read(name: str) -> list[dict]:
@@ -139,7 +159,7 @@ def read(name: str) -> list[dict]:
     rows = safeio.read_csv(path(name))
     out: list[dict] = []
     for r in rows:
-        clean = {k: (v if v is not None else "") for k, v in r.items() if k is not None}
+        clean = {_strip_bom_key(k): (v if v is not None else "") for k, v in r.items() if k is not None}
         for k in header:
             clean.setdefault(k, "")
         out.append(clean)
@@ -147,9 +167,12 @@ def read(name: str) -> list[dict]:
 
 
 def append(name: str, row: Mapping[str, object]) -> Path:
-    """Append one row (unknown keys dropped, missing keys empty). Creates the ledger if needed."""
+    """Append one row (unknown keys dropped, missing keys empty). Creates the ledger if needed.
+    Refuses (LedgerError, file untouched) when the on-disk header is not canonical."""
+    p = path(name)
+    _assert_canonical_header(name, p)
     row = {k: _cell(v) for k, v in row.items()}
-    return safeio.append_csv_row(path(name), row, HEADERS[name])
+    return safeio.append_csv_row(p, row, HEADERS[name])
 
 
 def _cell(v: object) -> str:
@@ -180,9 +203,7 @@ def upsert(name: str, key_fields: Sequence[str], row: Mapping[str, object]) -> d
         if k not in header:
             raise LedgerError(f"{name}: key field {k!r} is not a column")
     p = path(name)
-    existing = _read_header(p)
-    if existing is not None and existing != header:
-        raise LedgerError(f"{name}.csv header is not canonical ({existing}); run migrate first")
+    _assert_canonical_header(name, p)
     new = {k: _cell(v) for k, v in row.items() if k in header}
     for k in key_fields:
         if not new.get(k, ""):
@@ -297,7 +318,7 @@ def validate(name: str) -> list[str]:
     header = _read_header(p)
     if header is None:
         return validate_rows(name, None, [])
-    with open(p, "r", encoding="utf-8", newline="") as f:
+    with open(p, "r", encoding="utf-8-sig", newline="") as f:    # read only: BOM dropped
         rows = list(csv.DictReader(f))
     return validate_rows(name, header, rows)
 
@@ -372,7 +393,7 @@ def migrate_file(name: str, aliases: Mapping[str, str] | None = None, *, write: 
     header = _read_header(p)
     if header is None:
         return {"rows": 0, "header_before": None, "unmapped": 0, "written": False}
-    with open(p, "r", encoding="utf-8", newline="") as f:
+    with open(p, "r", encoding="utf-8-sig", newline="") as f:    # read only: BOM dropped
         rows = list(csv.DictReader(f))
     new_rows = migrate(name, rows, aliases)
     unmapped = sum(1 for r in new_rows if r.get("_unmapped"))
@@ -415,27 +436,50 @@ def sessions_get(session: str) -> dict | None:
     return None
 
 
+def _rest_until_parsed(row: Mapping[str, str]) -> tuple[date | None, bool]:
+    """(rest_until as a date or None when empty, True when the cell is unparsable)."""
+    v = (row.get("rest_until") or "").strip()
+    if not v:
+        return None, False
+    try:
+        return _as_date(v), False
+    except ValueError:
+        return None, True
+
+
 def sessions_rest_ok(session: str, today: date) -> bool:
     """True when the session is out of rest on `today` (rest_until is the first day it may be
-    used again). Unknown sessions and empty rest_until are not resting."""
+    used again). Unknown sessions and empty rest_until are not resting. An unparsable
+    rest_until (e.g. "10/30/2026" typed by hand) FAILS CLOSED: the session stays resting
+    until `validate` is run and the cell fixed, so a typo never un-rests a session."""
     r = sessions_get(session)
     if r is None:
         return True
-    v = (r.get("rest_until") or "").strip()
-    if not v:
+    until, bad = _rest_until_parsed(r)
+    if bad:
+        return False
+    if until is None:
         return True
-    try:
-        return _as_date(today) >= _as_date(v)
-    except ValueError:
-        return True
+    return _as_date(today) >= until
+
+
+def _status_word(row: Mapping[str, str]) -> str:
+    # tolerate "spent: 6+ posts, ..." style remarks (validate() still flags them)
+    return (row.get("status") or "").split(":")[0].strip().lower()
 
 
 def sessions_available(session: str, today: date) -> bool:
-    """rest_ok AND status is not spent."""
+    """rest_ok AND status is not spent. A row marked status=resting with no usable rest_until
+    (empty or unparsable) is treated as still resting (fail closed)."""
     r = sessions_get(session)
-    # tolerate "spent: 6+ posts, ..." style remarks (validate() still flags them)
-    if r is not None and (r.get("status") or "").split(":")[0].strip().lower() == "spent":
-        return False
+    if r is not None:
+        st = _status_word(r)
+        if st == "spent":
+            return False
+        if st == "resting":
+            until, bad = _rest_until_parsed(r)
+            if bad or until is None:
+                return False
     return sessions_rest_ok(session, today)
 
 
@@ -502,18 +546,32 @@ def footage_rows() -> list[dict]:
 
 
 # --------------------------------------------------------------------------- CLI
+def _utf8_stdout() -> None:
+    """Captions carry emoji; an interactive Windows console without PYTHONUTF8=1 would raise
+    UnicodeEncodeError on print(). Best effort, never fatal."""
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _utf8_stdout()
+    # --json is accepted both before and after the subcommand ("show hooks --json"). The
+    # subcommand copy uses SUPPRESS so its default never clobbers a top-level --json.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="JSON output")
     ap = argparse.ArgumentParser(prog="py -m tools.ledgers", description=__doc__.splitlines()[0])
+    ap.add_argument("--json", action="store_true", default=False, help="JSON output")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("ensure", help="create missing ledgers with their headers")
-    v = sub.add_parser("validate", help="check header, dates, times, numbers and statuses")
+    sub.add_parser("ensure", help="create missing ledgers with their headers", parents=[common])
+    v = sub.add_parser("validate", help="check header, dates, times, numbers and statuses", parents=[common])
     v.add_argument("name", nargs="?", choices=NAMES)
-    s = sub.add_parser("show", help="print a ledger")
+    s = sub.add_parser("show", help="print a ledger", parents=[common])
     s.add_argument("name", choices=NAMES)
-    m = sub.add_parser("migrate", help="map older column names onto the canonical header")
+    m = sub.add_parser("migrate", help="map older column names onto the canonical header", parents=[common])
     m.add_argument("name", choices=NAMES)
     m.add_argument("--write", action="store_true", help="rewrite the file (default: dry-run)")
-    ap.add_argument("--json", action="store_true", help="JSON output")
     a = ap.parse_args(argv)
 
     if a.cmd == "ensure":

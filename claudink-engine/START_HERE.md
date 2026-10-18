@@ -145,15 +145,19 @@ You run on his Windows PC, where the footage lives, inside Claude Code. Your job
    `CLAUDE.md`, `ledgers\seed\`, `register\`, `experiments.md`, `post\SHOOT_CARD.txt`, `tools\`.
    Create anything missing from `ledgers\ data\ cache\ post\ hold\ runs\ state\ register\`
    (`py -m tools.config` prints the paths; `config.ensure_engine_dirs()` makes them).
-3. **Permissions.** `.claude\settings.json` is the seatbelt (not a sandbox): allows for
-   `py/python/pip/yt-dlp/ffmpeg/ffprobe` (and their PowerShell equivalents), reads under
-   `F:\My Drive`, `D:\ClaudeInk`, the igserver folder; edits under `reel-engine` and
-   `F:\My Drive\ClaudeInk Reels`; denies for `rm/del/rmdir/format/Remove-Item/mv/move/Move-Item`,
-   `git push`, and edits under `D:\ClaudeInk\runner|shop|out`. Windows path rules are written in the
-   forms Claude Code accepts; if Claude Code rejects a key or a path form, fix that line and continue.
-   Verify: read one Drive clip's header with ffprobe and write a file in `cache\`; if either prompts
-   or fails, repair the rule. Copy the same allows into `~/.claude/settings.json` (the project
-   file only applies once the folder is trusted).
+3. **Permissions.** `.claude\settings.json` is a seatbelt, not a sandbox (`tools/safeio.py` is the
+   real guard for anything Python writes). Windows paths are matched in POSIX form, so the rules read
+   `Read(//f/My Drive/**)`, `Edit(//d/ClaudeInk/reel-engine/**)` (Edit rules cover every write tool;
+   `Write(...)` path rules are never consulted). Allows: `py/python/pip/yt-dlp/ffmpeg/ffprobe` and
+   their PowerShell forms; reads under `F:\My Drive`, `D:\ClaudeInk`, the igserver folder; edits
+   under `reel-engine` and `F:\My Drive\ClaudeInk Reels`; `additionalDirectories` =
+   `F:/My Drive/ClaudeInk Reels`. Denies (they hold in every mode, even bypass):
+   `rm/del/rmdir/format/mv/move`, `Remove-Item/Move-Item`, `git push`, and edits under
+   `D:\ClaudeInk\runner|shop|out` and the footage folders. Project allows only apply after the
+   folder-trust dialog and never in a `-p` run, so copy the same `permissions` block into
+   `~/.claude/settings.json` (README.md has it). Do not set `defaultMode` in the project file (auto
+   and bypass are ignored there). Verify on day one: `ffprobe` one Drive clip's header and write a
+   file in `cache\`; if either prompts or fails, repair the rule and continue.
 4. **Subagents and skills** are in the kit: `critic` (Read only; it is handed packet folders under
    `cache\panel\<round>\P??\` and nothing else, never file names, numbers or who cut a reel),
    `analyst` (Read, Bash, Write; writes only `data\`, `runs\`, `ledgers\deliveries.csv`,
@@ -193,17 +197,26 @@ You run on his Windows PC, where the footage lives, inside Claude Code. Your job
    `VID_/IMG_/MVI_/video-` files; video only; header-only probes; 20 GB/day budget; never personal
    folders). Then `pieces.csv` (never invent hours), `sessions.csv`, `hooks.csv`, `deliveries.csv`
    seeded from the Claude-edited reels log in reel-video-learnings.md.
-9. **Scheduling.** Create two scheduled tasks:
-   - `reel-daily`: every day at **06:40 ET**, folder `D:\ClaudeInk\reel-engine`. Prompt: "Read
-     CLAUDE.md, then run the daily program exactly as .claude/skills/daily-run/SKILL.md says."
-   - `reel-weekly`: Sundays at **05:30 ET**, same folder, the `weekly` skill (must finish in 60 min).
-   - In the desktop app describe them and choose permission mode Auto; run each once with **Run
-     now** and pick "always allow" on every prompt. If desktop scheduling is not available, register
-     `tools\run_daily.cmd` and `tools\run_weekly.cmd` with `schtasks` (the exact lines are in README.md;
-     they run `claude -p` in the mode README names). A test run and the dry-run write only to
-     `runs\dryrun\<date>\`, never to `post\`.
-   - The two tasks share `state/engine.lock` {owner, pid, start}. A lock older than 4 h or whose
-     pid is dead is stale: take it over and note it.
+9. **Scheduling.** One scheduled task (two would skip each other: the Desktop app skips a run
+   while another scheduled task is still running):
+   - `reel-daily`: every day at **06:40 ET**, folder `D:\ClaudeInk\reel-engine`, permission mode
+     Auto, worktree OFF. Instructions: "Read CLAUDE.md, then run the daily program exactly as
+     .claude/skills/daily-run/SKILL.md says." On Sundays the daily run performs the weekly block
+     (section 5) after delivering. Create it in the Desktop app: Code tab -> Routines -> New routine
+     -> Local (Desktop 1.1.5368 or later), or by describing it in any session. Run it once with
+     **Run now** and choose "always allow" on every prompt so later runs never stall. The app fires
+     it only while it is open and the PC is awake; a missed run gets one catch-up run on wake, which
+     may be late in the day, so the daily-run skill starts with the late-run rule.
+   - `reel-weekly`: the same folder, schedule **Manual** (Run now only), the `weekly` skill, for
+     on-demand re-runs.
+   - If Desktop scheduling is not available (CLI only): `tools\run_daily.cmd` runs
+     `claude -p "..." --permission-mode auto --permission-prompts none` (allows must then live in
+     `~/.claude/settings.json`, because a `-p` run never shows the trust dialog); register it with
+     `schtasks /create /tn "ClaudInk Reel Daily" /tr "D:\ClaudeInk\reel-engine\tools\run_daily.cmd" /sc daily /st 06:40`.
+     README.md has the exact lines. A test run and the dry-run write only to `runs\dryrun\<date>\`,
+     never to `post\`.
+   - Every run takes `state/engine.lock` {owner, pid, start}. A lock older than 4 h or whose pid is
+     dead is stale: take it over and note it.
 
 ## 4. Phase 1: burn-in ("find what's wrong"), loop until the exit criteria pass
 Keep the state in `state/burn-in.md` (iteration number, open items, next step). Re-read it at the
@@ -297,7 +310,7 @@ end this session. The scheduled tasks are the program; do not keep this session 
     glasses clips to Drive" at the top of POST_THIS (`state/blocked.txt`).
 12. Write `runs/<date>.md` (<= 12 lines) and update the ledgers and the register.
 
-**`weekly` (Sundays 05:30 ET, finish within 60 min):** recompute the hit rate, shares/1K and
+**`weekly` (runs inside the Sunday daily-run after delivery; also on demand):** recompute the hit rate, shares/1K and
 saves/1K by slot, type and opener type (`report`); close or extend experiments by the decision rule
 in `experiments.md`; rule changes only through `rules-keeper`; refresh `pieces.csv` and the session
 rest dates; attack the oldest OPEN W-item; re-run the critic calibration; `py -m tools.encode bench`
