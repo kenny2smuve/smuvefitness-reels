@@ -1,11 +1,15 @@
 {
   "id": "wait-only-how-much",
   "file": "out/wait-only-how-much.mp4",
-  "seconds": 13.1,
+  "seconds": 11.83,
+  "fittedToMax": true,
+  "frame1Std": 60.1,
   "format": "Wait, it is only...? (double-take)",
+  "auditFormat": "overlay",
   "hook": "Wait... it's only HOW much??",
   "caption": "Not a typo 🤝 $9.99/mo, cancel anytime. Want to try it first? Free sample workout at smuvefitness.net/sample #gymtok #workoutprogram #gymbeginner #fitnessmemes #smuvefitness",
   "youtubeTitle": "Wait... A Full Gym Program Is Only HOW Much? #shorts",
   "audioVibe": "Record-scratch double-take into a smooth, confident R&B beat",
+  "audioBed": "synth drums 88 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

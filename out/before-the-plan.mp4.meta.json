@@ -1,0 +1,105 @@
+{
+  "file": "before-the-plan.mp4",
+  "format": "overlay",
+  "duration": 10,
+  "text_boxes": [
+    {
+      "x0": 265,
+      "y0": 679,
+      "x1": 815,
+      "y1": 783,
+      "label": "ME BEFORE THE"
+    },
+    {
+      "x0": 308,
+      "y0": 783,
+      "x1": 773,
+      "y1": 887,
+      "label": "$9.99 PLAN:"
+    },
+    {
+      "x0": 229,
+      "y0": 957,
+      "x1": 852,
+      "y1": 1025,
+      "label": "*does 3 sets of curls,"
+    },
+    {
+      "x0": 271,
+      "y0": 1025,
+      "x1": 810,
+      "y1": 1093,
+      "label": "checks phone for 40"
+    },
+    {
+      "x0": 312,
+      "y0": 1093,
+      "x1": 768,
+      "y1": 1161,
+      "label": "minutes, leaves*"
+    },
+    {
+      "x0": 237,
+      "y0": 715,
+      "x1": 843,
+      "y1": 819,
+      "label": "\"I'LL JUST SEE"
+    },
+    {
+      "x0": 322,
+      "y0": 819,
+      "x1": 759,
+      "y1": 923,
+      "label": "HOW I FEEL"
+    },
+    {
+      "x0": 406,
+      "y0": 923,
+      "x1": 674,
+      "y1": 1027,
+      "label": "TODAY\""
+    },
+    {
+      "x0": 229,
+      "y0": 1057,
+      "x1": 852,
+      "y1": 1125,
+      "label": "(felt like going home)"
+    },
+    {
+      "x0": 267,
+      "y0": 400,
+      "x1": 813,
+      "y1": 544,
+      "label": "ME AFTER:"
+    },
+    {
+      "x0": 215,
+      "y0": 574,
+      "x1": 866,
+      "y1": 642,
+      "label": "Every set written down."
+    },
+    {
+      "x0": 284,
+      "y0": 642,
+      "x1": 796,
+      "y1": 710,
+      "label": "Every week harder."
+    },
+    {
+      "x0": 175,
+      "y0": 1080,
+      "x1": 905,
+      "y1": 1174,
+      "label": "endcard"
+    },
+    {
+      "x0": 183,
+      "y0": 1195,
+      "x1": 898,
+      "y1": 1268,
+      "label": "endcard"
+    }
+  ]
+}

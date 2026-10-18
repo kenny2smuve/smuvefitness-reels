@@ -1,11 +1,15 @@
 {
   "id": "gym-quiz-need-a-plan",
   "file": "out/gym-quiz-need-a-plan.mp4",
-  "seconds": 15.6,
+  "seconds": 11.9,
+  "fittedToMax": true,
+  "frame1Std": 62.7,
   "format": "Fake quiz (answer honestly)",
+  "auditFormat": "overlay",
   "hook": "Quick gym quiz. Answer honestly.",
   "caption": "Be honest: how many yeses? No judgment, just a plan. Try the free 8-exercise sample at smuvefitness.net/sample or go full SMUVE Training Club for $9.99/mo. #gymtok #gymquiz #beginnergym #workoutplan #smuvefitness",
   "youtubeTitle": "Quick Gym Quiz: Do You Actually Need a Plan? #shorts",
   "audioVibe": "Game-show quiz music with a buzzer on the final score reveal",
+  "audioBed": "synth drums 92 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

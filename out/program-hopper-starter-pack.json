@@ -1,11 +1,15 @@
 {
   "id": "program-hopper-starter-pack",
   "file": "out/program-hopper-starter-pack.mp4",
-  "seconds": 12.1,
+  "seconds": 11.5,
+  "fittedToMax": false,
+  "frame1Std": 77.6,
   "format": "Starter pack",
+  "auditFormat": "overlay",
   "hook": "Program hopper starter pack:",
   "caption": "Be honest, how many workout reels are in your saved folder right now? 👀 Stop hopping. SMUVE Training Club, $9.99/mo, cancel anytime. #programhopping #gymtok #gymhumor #workoutplan #smuvefitness",
   "youtubeTitle": "Program Hopper Starter Pack (Be Honest) #shorts",
   "audioVibe": "Upbeat starter-pack slideshow vibe with a ding as each item pops in",
+  "audioBed": "synth drums 104 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

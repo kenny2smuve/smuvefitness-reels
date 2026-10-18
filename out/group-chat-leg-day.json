@@ -1,11 +1,15 @@
 {
   "id": "group-chat-leg-day",
   "file": "out/group-chat-leg-day.mp4",
-  "seconds": 16.1,
+  "seconds": 11.8,
+  "fittedToMax": true,
+  "frame1Std": 64.6,
   "format": "Me explaining to my friends",
+  "auditFormat": "overlay",
   "hook": "Me explaining to the group chat",
   "caption": "Sorry guys, my boss said it's leg day 🦵 SMUVE Training Club, $9.99/mo, cancel anytime. Link in bio. #legday #gymhumor #gymtok #groupchat #smuvefitness",
   "youtubeTitle": "Explaining to My Friends Why I Can't Go Out (Leg Day) #shorts",
   "audioVibe": "Light, chatty storytelling beat, the playful 'let me explain' trend vibe",
+  "audioBed": "synth drums 100 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

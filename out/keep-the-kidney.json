@@ -1,11 +1,15 @@
 {
   "id": "keep-the-kidney",
   "file": "out/keep-the-kidney.mp4",
-  "seconds": 13.1,
+  "seconds": 11.83,
+  "fittedToMax": true,
+  "frame1Std": 78.8,
   "format": "Expectation vs reality",
+  "auditFormat": "overlay",
   "hook": "What I thought a gym program costs:",
   "caption": "You can keep both kidneys 🙏 Structured programs for men and women, $9.99/mo, cancel anytime. Try a free sample at smuvefitness.net/sample #gymtok #fitnessmemes #gymhumor #workoutprogram #smuvefitness",
   "youtubeTitle": "What I Thought a Gym Program Cost vs Reality #shorts",
   "audioVibe": "Dramatic orchestral build-up that cuts to silence, then a light comedic ding on the reveal",
+  "audioBed": "synth drums 100 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

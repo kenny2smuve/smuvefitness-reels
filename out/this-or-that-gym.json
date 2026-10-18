@@ -1,11 +1,15 @@
 {
   "id": "this-or-that-gym",
   "file": "out/this-or-that-gym.mp4",
-  "seconds": 14.6,
+  "seconds": 11.8,
+  "fittedToMax": true,
+  "frame1Std": 55.7,
   "format": "This or That",
+  "auditFormat": "overlay",
   "hook": "This or that: gym edition. Go.",
   "caption": "Drop your answers 1-2-3 in the comments. We already know the right answer for number 3. SMUVE Training Club, $9.99/mo, cancel anytime. #gymtok #thisorthat #gymlife #gymhumor #smuvefitness",
   "youtubeTitle": "Gym This or That: Which One Are You? #shorts",
   "audioVibe": "Fast ticking-clock quick-choice beat with a snap on each question",
+  "audioBed": "synth drums 88 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

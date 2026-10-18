@@ -1,0 +1,126 @@
+{
+  "file": "unpopular-opinion-not-lazy.mp4",
+  "format": "overlay",
+  "duration": 11.87,
+  "text_boxes": [
+    {
+      "x0": 350,
+      "y0": 729,
+      "x1": 731,
+      "y1": 833,
+      "label": "UNPOPULAR"
+    },
+    {
+      "x0": 371,
+      "y0": 833,
+      "x1": 709,
+      "y1": 937,
+      "label": "OPINION:"
+    },
+    {
+      "x0": 195,
+      "y0": 1007,
+      "x1": 885,
+      "y1": 1111,
+      "label": "YOU'RE NOT LAZY."
+    },
+    {
+      "x0": 185,
+      "y0": 600,
+      "x1": 895,
+      "y1": 716,
+      "label": "You're unprepared."
+    },
+    {
+      "x0": 241,
+      "y0": 746,
+      "x1": 839,
+      "y1": 862,
+      "label": "No plan, so you"
+    },
+    {
+      "x0": 428,
+      "y0": 862,
+      "x1": 652,
+      "y1": 978,
+      "label": "leave"
+    },
+    {
+      "x0": 185,
+      "y0": 1008,
+      "x1": 895,
+      "y1": 1124,
+      "label": "the second you run"
+    },
+    {
+      "x0": 279,
+      "y0": 1124,
+      "x1": 802,
+      "y1": 1240,
+      "label": "out of ideas."
+    },
+    {
+      "x0": 195,
+      "y0": 697,
+      "x1": 885,
+      "y1": 801,
+      "label": "MOTIVATION COMES"
+    },
+    {
+      "x0": 343,
+      "y0": 801,
+      "x1": 738,
+      "y1": 905,
+      "label": "AND GOES."
+    },
+    {
+      "x0": 216,
+      "y0": 935,
+      "x1": 864,
+      "y1": 1039,
+      "label": "A PLAN SHOWS UP"
+    },
+    {
+      "x0": 385,
+      "y0": 1039,
+      "x1": 695,
+      "y1": 1143,
+      "label": "ANYWAY."
+    },
+    {
+      "x0": 195,
+      "y0": 775,
+      "x1": 885,
+      "y1": 879,
+      "label": "STOP WINGING IT."
+    },
+    {
+      "x0": 239,
+      "y0": 909,
+      "x1": 841,
+      "y1": 987,
+      "label": "SMUVE TRAINING CLUB"
+    },
+    {
+      "x0": 192,
+      "y0": 987,
+      "x1": 889,
+      "y1": 1065,
+      "label": "$9.99/MO - LINK IN BIO"
+    },
+    {
+      "x0": 175,
+      "y0": 1080,
+      "x1": 905,
+      "y1": 1174,
+      "label": "endcard"
+    },
+    {
+      "x0": 183,
+      "y0": 1195,
+      "x1": 898,
+      "y1": 1268,
+      "label": "endcard"
+    }
+  ]
+}

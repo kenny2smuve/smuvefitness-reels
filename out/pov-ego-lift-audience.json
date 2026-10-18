@@ -1,11 +1,15 @@
 {
   "id": "pov-ego-lift-audience",
   "file": "out/pov-ego-lift-audience.mp4",
-  "seconds": 13.6,
+  "seconds": 11.83,
+  "fittedToMax": true,
+  "frame1Std": 72,
   "format": "POV",
+  "auditFormat": "overlay",
   "hook": "POV: you add plates because someone's watching",
   "caption": "They were on their phone the whole time. Leave the ego at the door and follow a plan with real structure. SMUVE Training Club, $9.99 a month, link in bio. #egolifting #gymhumor #gymtok #liftingmemes #smuvefitness",
   "youtubeTitle": "POV: You Ego Lift Because Someone's Watching #shorts",
   "audioVibe": "Dramatic slow-build or suspense trend sound that cuts to dead silence on 'They weren't even looking.'",
+  "audioBed": "synth drums 88 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

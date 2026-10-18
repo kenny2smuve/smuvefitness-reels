@@ -1,11 +1,15 @@
 {
   "id": "before-after-plan",
   "file": "out/before-after-plan.mp4",
-  "seconds": 16.1,
+  "seconds": 11.83,
+  "fittedToMax": true,
+  "frame1Std": 71.5,
   "format": "Before vs after I had a plan (text cards only)",
+  "auditFormat": "overlay",
   "hook": "Me before I had a plan:",
   "caption": "The parking lot Google search era is over 🫡 SMUVE Training Club has full programs for men and women. $9.99/mo, cancel anytime. #gymtok #workoutplan #gymbeginner #gymhumor #smuvefitness",
   "youtubeTitle": "Me Before vs After I Had a Gym Plan #shorts",
   "audioVibe": "Sad lo-fi for the before, hard beat switch into a confident hype instrumental for the after",
+  "audioBed": "synth drums 100 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

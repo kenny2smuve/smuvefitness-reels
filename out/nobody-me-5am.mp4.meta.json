@@ -1,0 +1,77 @@
+{
+  "file": "nobody-me-5am.mp4",
+  "format": "overlay",
+  "duration": 8.4,
+  "text_boxes": [
+    {
+      "x0": 335,
+      "y0": 848,
+      "x1": 745,
+      "y1": 992,
+      "label": "NOBODY:"
+    },
+    {
+      "x0": 280,
+      "y0": 400,
+      "x1": 801,
+      "y1": 504,
+      "label": "ME AT 5:30AM"
+    },
+    {
+      "x0": 195,
+      "y0": 504,
+      "x1": 885,
+      "y1": 608,
+      "label": "BECAUSE THE PLAN"
+    },
+    {
+      "x0": 258,
+      "y0": 608,
+      "x1": 822,
+      "y1": 712,
+      "label": "SAID BACK DAY"
+    },
+    {
+      "x0": 201,
+      "y0": 742,
+      "x1": 880,
+      "y1": 810,
+      "label": "(I didn't have to think."
+    },
+    {
+      "x0": 424,
+      "y0": 810,
+      "x1": 657,
+      "y1": 878,
+      "label": "at all.)"
+    },
+    {
+      "x0": 237,
+      "y0": 801,
+      "x1": 843,
+      "y1": 905,
+      "label": "ZERO GUESSING."
+    },
+    {
+      "x0": 258,
+      "y0": 935,
+      "x1": 822,
+      "y1": 1039,
+      "label": "JUST LIFTING."
+    },
+    {
+      "x0": 175,
+      "y0": 1080,
+      "x1": 905,
+      "y1": 1174,
+      "label": "endcard"
+    },
+    {
+      "x0": 183,
+      "y0": 1195,
+      "x1": 898,
+      "y1": 1268,
+      "label": "endcard"
+    }
+  ]
+}

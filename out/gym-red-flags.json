@@ -1,11 +1,15 @@
 {
   "id": "gym-red-flags",
   "file": "out/gym-red-flags.mp4",
-  "seconds": 14.6,
+  "seconds": 11.8,
+  "fittedToMax": true,
+  "frame1Std": 68.2,
   "format": "Red flags vs green flag",
+  "auditFormat": "overlay",
   "hook": "Gym red flags:",
   "caption": "If you've started a new split 3 Mondays in a row, this is your sign 🚩➡️✅ SMUVE Training Club: $9.99/mo, cancel anytime. #gymredflags #gymhumor #gymtok #fitnessmemes #smuvefitness",
   "youtubeTitle": "Gym Red Flags vs The One Green Flag #shorts",
   "audioVibe": "Playful, slightly ominous beat under the red flags with a bass drop when the green flag hits (any generic beat, not a specific trending track)",
+  "audioBed": "synth drums 104 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

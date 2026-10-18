@@ -1,0 +1,105 @@
+{
+  "file": "keep-the-kidney.mp4",
+  "format": "overlay",
+  "duration": 11.83,
+  "text_boxes": [
+    {
+      "x0": 222,
+      "y0": 804,
+      "x1": 858,
+      "y1": 920,
+      "label": "What I thought a"
+    },
+    {
+      "x0": 185,
+      "y0": 920,
+      "x1": 895,
+      "y1": 1036,
+      "label": "gym program costs:"
+    },
+    {
+      "x0": 237,
+      "y0": 734,
+      "x1": 843,
+      "y1": 838,
+      "label": "MY TAX REFUND."
+    },
+    {
+      "x0": 343,
+      "y0": 868,
+      "x1": 738,
+      "y1": 972,
+      "label": "A KIDNEY."
+    },
+    {
+      "x0": 258,
+      "y0": 1002,
+      "x1": 822,
+      "y1": 1106,
+      "label": "MY FIRSTBORN."
+    },
+    {
+      "x0": 195,
+      "y0": 816,
+      "x1": 885,
+      "y1": 920,
+      "label": "WHAT IT ACTUALLY"
+    },
+    {
+      "x0": 406,
+      "y0": 920,
+      "x1": 674,
+      "y1": 1024,
+      "label": "COSTS:"
+    },
+    {
+      "x0": 237,
+      "y0": 656,
+      "x1": 843,
+      "y1": 760,
+      "label": "$9.99 A MONTH."
+    },
+    {
+      "x0": 195,
+      "y0": 790,
+      "x1": 885,
+      "y1": 894,
+      "label": "KEEP THE KIDNEY."
+    },
+    {
+      "x0": 280,
+      "y0": 894,
+      "x1": 801,
+      "y1": 998,
+      "label": "AND THE KID."
+    },
+    {
+      "x0": 239,
+      "y0": 1028,
+      "x1": 841,
+      "y1": 1106,
+      "label": "SMUVE TRAINING CLUB"
+    },
+    {
+      "x0": 366,
+      "y0": 1106,
+      "x1": 715,
+      "y1": 1184,
+      "label": "LINK IN BIO"
+    },
+    {
+      "x0": 175,
+      "y0": 1080,
+      "x1": 905,
+      "y1": 1174,
+      "label": "endcard"
+    },
+    {
+      "x0": 183,
+      "y0": 1195,
+      "x1": 898,
+      "y1": 1268,
+      "label": "endcard"
+    }
+  ]
+}

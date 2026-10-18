@@ -1,11 +1,15 @@
 {
   "id": "things-that-just-make-sense-gym",
   "file": "out/things-that-just-make-sense-gym.mp4",
-  "seconds": 13.6,
+  "seconds": 11.83,
+  "fittedToMax": true,
+  "frame1Std": 70.2,
   "format": "Things that just make sense",
+  "auditFormat": "overlay",
   "hook": "Things that just make sense at the gym:",
   "caption": "Add one in the comments. The last one is the easiest on the list. SMUVE Training Club: structured programs for men and women, $9.99/mo. Link in bio. #gymetiquette #gymtok #gymhumor #workoutplan #smuvefitness",
   "youtubeTitle": "Things That Just Make Sense at the Gym #shorts",
   "audioVibe": "Chill, satisfying lo-fi or an 'oddly satisfying' trend sound, with each line popping on the beat",
+  "audioBed": "synth drums 104 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

@@ -5,12 +5,14 @@
   "scenes": [
     {
       "bg": "card-red",
-      "seconds": 5.5,
+      "seconds": 4.2,
       "lines": [
-        "Gym red flags:",
+        {
+          "text": "Gym red flags:",
+          "style": "big"
+        },
         "\"I just do whatever I feel like\"",
-        "Day 1 of a new split. Again.",
-        "Copies whatever the biggest guy is doing."
+        "Day 1 of a new split. Again."
       ]
     },
     {

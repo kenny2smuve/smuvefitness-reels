@@ -1,11 +1,15 @@
 {
   "id": "before-the-plan",
   "file": "out/before-the-plan.mp4",
-  "seconds": 10.6,
+  "seconds": 10,
+  "fittedToMax": false,
+  "frame1Std": 71,
   "format": "Me before vs me after (Kenny's example)",
+  "auditFormat": "overlay",
   "hook": "Me before the $9.99 plan:",
   "caption": "The plan did the thinking. I just showed up. SMUVE Training Club is $9.99 a month, link in bio. #gymhumor #gymtok #workoutplan #fitnessmotivation #smuvefitness",
   "youtubeTitle": "Me before vs after a $9.99 workout plan #shorts",
   "audioVibe": "dramatic transformation beat drop on the cut to 'Me after'",
+  "audioBed": "synth drums 96 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

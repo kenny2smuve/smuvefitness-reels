@@ -1,11 +1,15 @@
 {
   "id": "tell-me-youre-new-kenny",
   "file": "out/tell-me-youre-new-kenny.mp4",
-  "seconds": 14.1,
+  "seconds": 11.83,
+  "fittedToMax": true,
+  "frame1Std": 72.2,
   "format": "Tell me you... without telling me",
+  "auditFormat": "overlay",
   "hook": "Tell me you're new without telling me",
   "caption": "Everyone has googled 'how many sets' mid-workout. No judgment. I wrote out every exercise, set and rep so you don't have to guess. Free sample at smuvefitness.net/sample, or the full SMUVE Training Club for $9.99/mo. Link in bio. #beginnergym #gymbeginner #gymtok #gymhumor #smuvefitness",
   "youtubeTitle": "Tell Me You're New to the Gym Without Telling Me #shorts",
   "audioVibe": "Playful 'tell me without telling me' trend sound or a bouncy beat, with a soft beat switch when Kenny's photo appears",
+  "audioBed": "synth drums 88 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

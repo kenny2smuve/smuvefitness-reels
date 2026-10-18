@@ -1,11 +1,15 @@
 {
   "id": "never-used-receipt",
   "file": "out/never-used-receipt.mp4",
-  "seconds": 15.6,
+  "seconds": 11.77,
+  "fittedToMax": true,
+  "frame1Std": 78,
   "format": "Itemized receipt roast (things I paid for and never used)",
+  "auditFormat": "overlay",
   "hook": "Things I paid for and never used:",
   "caption": "In my defense the pre-workout had a cool label 😭 The SMUVE Training Club is $9.99/mo, cancel anytime. Free sample workout at smuvefitness.net/sample #gymhumor #gymtok #fitnessmemes #workoutplan #smuvefitness",
   "youtubeTitle": "Things I Paid For vs. a $9.99/mo Gym Plan #shorts",
   "audioVibe": "Slow sad-violin comedy sting under the receipt list, cutting to an upbeat beat on the price reveal",
+  "audioBed": "synth drums 96 bpm",
   "status": "draft-awaiting-kenny-approval"
 }

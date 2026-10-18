@@ -1,11 +1,15 @@
 {
   "id": "nobody-me-preworkout",
   "file": "out/nobody-me-preworkout.mp4",
-  "seconds": 15.1,
+  "seconds": 11.9,
+  "fittedToMax": true,
+  "frame1Std": 58.7,
   "format": "Nobody: / Me:",
+  "auditFormat": "overlay",
   "hook": "Nobody:",
   "caption": "Blue raspberry, fruit punch, sour gummy... and zero plan 💀 Get a workout that matches the pre-workout. SMUVE Training Club, $9.99/mo, link in bio. #preworkout #gymhumor #gymtok #fitnessmemes #smuvefitness",
   "youtubeTitle": "Nobody: / Me Buying Pre-Workout With No Plan #shorts",
   "audioVibe": "Chaotic hyped trap beat, the 'pre-workout just kicked in' meme energy",
+  "audioBed": "synth drums 100 bpm",
   "status": "draft-awaiting-kenny-approval"
 }
