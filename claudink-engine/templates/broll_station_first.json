@@ -1,0 +1,19 @@
+{
+  "name": "station_first",
+  "total_s": 13.6,
+  "canvas": [1440, 2560],
+  "silent": true,
+  "text": false,
+  "slots": [
+    {"role": "station", "s": 2.4},
+    {"role": "piece", "s": 1.6},
+    {"role": "piece", "s": 1.6},
+    {"role": "station", "s": 1.2},
+    {"role": "piece", "s": 1.6},
+    {"role": "piece", "s": 1.6},
+    {"role": "station", "s": 1.0},
+    {"role": "piece", "s": 1.6},
+    {"role": "piece", "s": 1.0}
+  ],
+  "PLACEHOLDER": "These slot timings are a stand-in. Replace them with the exact approved template from knowledge/RULES.md section 2 before the first real b-roll, then delete this key."
+}
