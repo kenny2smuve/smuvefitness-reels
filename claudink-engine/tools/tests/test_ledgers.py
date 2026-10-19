@@ -326,3 +326,32 @@ def test_cli(engine_root, capsys):
     assert json.loads(capsys.readouterr().out)["written"] is False
     with pytest.raises(SystemExit):
         L.main(["show", "hooks", "--bogus"])
+
+
+def test_seed_merges_without_dropping(engine_root, tmp_path):
+    from tools import ledgers
+    seed_dir = tmp_path / "seed"
+    seed_dir.mkdir()
+    (seed_dir / "hooks.csv").write_text(
+        "hook,type,used_on,reel,result_views,status\n"
+        "\"Rate these 1-10\",rate,2026-10-07,,,burned\n"
+        "\"Booked out for a reason\",booking,2026-10-07,,,burned\n", encoding="utf-8")
+    (seed_dir / "pieces.csv").write_text(
+        "piece,sessions,hours,color,healed_footage,rest_until,notes\nMudvayne,,10,no,,,\n", encoding="utf-8")
+    ledgers.append("hooks", {"hook": "rate  these 1-10", "status": "ok", "type": "mine"})
+    r1 = ledgers.seed(seed_dir)
+    assert r1["hooks"] == {"added": 1, "kept": 1} and r1["pieces"]["added"] == 1
+    hooks = ledgers.read("hooks")
+    assert len(hooks) == 2 and hooks[0]["type"] == "mine"          # live row wins, nothing dropped
+    r2 = ledgers.seed(seed_dir)
+    assert r2["hooks"]["added"] == 0 and len(ledgers.read("hooks")) == 2   # idempotent
+    assert ledgers.pieces_hours().get("Mudvayne") == "10"
+
+
+def test_seed_cli_uses_kit_seed(engine_root, capsys):
+    from tools import ledgers
+    assert ledgers.main(["seed", "--json"]) == 0
+    import json
+    out = json.loads(capsys.readouterr().out)
+    assert out["hooks"]["added"] >= 10 and out["sessions"]["added"] >= 4
+    assert ledgers.validate_all() and not any(ledgers.validate_all().values())

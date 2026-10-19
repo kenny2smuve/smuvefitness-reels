@@ -24,12 +24,17 @@ def _env_path(name: str, default: str) -> Path:
 
 
 # --------------------------------------------------------------------------- roots
-ENGINE_ROOT = _env_path("CLAUDINK_ENGINE_ROOT", r"D:\ClaudeInk\reel-engine")
-DRIVE_OUT = _env_path("CLAUDINK_DRIVE_OUT", r"F:\My Drive\ClaudeInk Reels")   # his Drive mirror (writable)
-FOOTAGE_ROOT = _env_path("CLAUDINK_FOOTAGE_ROOT", r"F:\My Drive")               # read-only footage
-LEGACY_OUT = _env_path("CLAUDINK_LEGACY_OUT", r"D:\ClaudeInk\out")              # old renders, read-only
+# On his Windows PC the defaults are the real D:/F:/C: paths. Anywhere else (the claude.ai
+# Reel Editor sandbox, a test box) everything lives under ~/claudink unless the env vars say otherwise.
+_WIN = os.name == "nt"
+_HOME = Path.home() / "claudink"
+ENGINE_ROOT = _env_path("CLAUDINK_ENGINE_ROOT", r"D:\ClaudeInk\reel-engine" if _WIN else str(_HOME / "reel-engine"))
+DRIVE_OUT = _env_path("CLAUDINK_DRIVE_OUT", r"F:\My Drive\ClaudeInk Reels" if _WIN else str(_HOME / "drive-out"))   # his Drive mirror (writable)
+FOOTAGE_ROOT = _env_path("CLAUDINK_FOOTAGE_ROOT", r"F:\My Drive" if _WIN else str(_HOME / "footage"))               # read-only footage
+LEGACY_OUT = _env_path("CLAUDINK_LEGACY_OUT", r"D:\ClaudeInk\out" if _WIN else str(_HOME / "legacy-out"))              # old renders, read-only
 METRICS_CSV = _env_path("CLAUDINK_METRICS_CSV",
-                        r"C:\Users\Firelake330\Desktop\igserver\reels_history.csv")  # read-only original
+                        r"C:\Users\Firelake330\Desktop\igserver\reels_history.csv" if _WIN
+                        else str(_HOME / "reels_history.csv"))  # read-only original
 
 # The only two trees any tool may write into (safeio enforces this).
 WRITE_ROOTS: tuple[Path, ...] = (ENGINE_ROOT, DRIVE_OUT)

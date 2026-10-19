@@ -83,3 +83,18 @@ measures them on your PC on the first run.
 ## Not verified here
 GPU encoding, NVDEC, libplacebo, the Whisper model and face detection could not run in this
 container (no GPU, model downloads blocked). The first PC run checks each one in preflight and bench.
+
+## Applied to the Reel Editor chat
+The Reel Editor chat on claude.ai runs the `tattoo-session-reels` skill, so the changes reach it through
+a new version of that skill (`skill/tattoo-session-reels/`, packaged as `tattoo-session-reels-v2.zip`):
+- SKILL.md rewritten (191 lines): v2 export rules, gates, hook gate, posting plan, never-zero ladder,
+  POST_THIS format, critic ship rule, 72 h hit rate, safety rules, and the still-valid craft rules from
+  the old skill (capture order, beats, first 3 seconds, out-points in the pause, chronology).
+- Retired from the old skill: the Oct 9 music-led F1 model, approved-track drops, FULL/DX masters, SDR
+  full-bleed crop, c_build.py and audit.py >= 85 (replaced by gates G1-G12), and browser-based reel review.
+- The 19 tools ship inside the skill and run in the chat's Linux sandbox (paths default to ~/claudink when
+  not on Windows; deliveries mirror into the chat's outputs folder). Every command the skill quotes was
+  run from a read-only copy of the skill folder.
+- Added `py -m tools.ledgers seed` (merges the shipped burned hooks, known hours and session rests into
+  the live ledgers without dropping a row), with tests.
+- `skill/REEL_EDITOR_UPDATE.md` is a message to paste into the existing chat so it switches immediately.

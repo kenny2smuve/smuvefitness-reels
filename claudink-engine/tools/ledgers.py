@@ -557,6 +557,60 @@ def _utf8_stdout() -> None:
         pass
 
 
+
+# --------------------------------------------------------------------------- seed merge
+SEED_KEYS: dict[str, tuple[str, ...]] = {
+    "hooks": ("hook",), "pieces": ("piece",), "sessions": ("session",), "footage": ("path",),
+    "captions_used": ("caption",), "deliveries": ("id",),
+}
+
+
+def _seed_key(name: str, row: Mapping[str, object]) -> tuple:
+    keys = SEED_KEYS.get(name) or tuple(HEADERS[name])
+    out = []
+    for k in keys:
+        v = str(row.get(k) or "")
+        if name == "hooks" and k == "hook":
+            v = " ".join(v.casefold().split())
+        else:
+            v = v.strip().casefold()
+        out.append(v)
+    return tuple(out)
+
+
+def default_seed_dir() -> Path:
+    """ledgers/seed under the engine root, else the seed folder shipped next to this kit."""
+    live = config.LEDGERS / "seed"
+    if live.is_dir():
+        return live
+    return Path(__file__).resolve().parents[1] / "ledgers" / "seed"
+
+
+def seed(seed_dir: Path | str | None = None) -> dict:
+    """Merge every <seed_dir>/<name>.csv into the live ledger. Rows whose key already exists are kept
+    as they are (the live ledger wins); new rows are appended. Nothing is ever dropped or rewritten.
+    Returns {name: {"added": n, "kept": n}}."""
+    d = Path(seed_dir) if seed_dir else default_seed_dir()
+    ensure_all()
+    report: dict[str, dict] = {}
+    for name in NAMES:
+        f = d / f"{name}.csv"
+        if not f.is_file():
+            continue
+        with open(f, "r", encoding="utf-8", newline="") as fh:
+            rows = list(csv.DictReader(fh))
+        have = {_seed_key(name, r) for r in read(name)}
+        added = 0
+        for r in rows:
+            k = _seed_key(name, r)
+            if not any(k) or k in have:
+                continue
+            append(name, {h: r.get(h, "") for h in HEADERS[name]})
+            have.add(k)
+            added += 1
+        report[name] = {"added": added, "kept": len(rows) - added}
+    return report
+
 def main(argv: Sequence[str] | None = None) -> int:
     _utf8_stdout()
     # --json is accepted both before and after the subcommand ("show hooks --json"). The
@@ -574,6 +628,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     m = sub.add_parser("migrate", help="map older column names onto the canonical header", parents=[common])
     m.add_argument("name", choices=NAMES)
     m.add_argument("--write", action="store_true", help="rewrite the file (default: dry-run)")
+    sd = sub.add_parser("seed", help="merge ledgers/seed/*.csv into the live ledgers (never drops a row)",
+                        parents=[common])
+    sd.add_argument("--dir", default=None, help="seed folder (default: ledgers/seed, else the kit's own)")
     a = ap.parse_args(argv)
 
     if a.cmd == "ensure":
@@ -604,6 +661,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             w.writeheader()
             for r in rows:
                 w.writerow(r)
+        return 0
+    if a.cmd == "seed":
+        res = seed(a.dir)
+        if a.json:
+            print(json.dumps(res))
+        else:
+            for n, r in res.items():
+                print(f"{n}: {r['added']} added, {r['kept']} already present")
         return 0
     if a.cmd == "migrate":
         res = migrate_file(a.name, write=a.write)
