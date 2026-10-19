@@ -15,7 +15,7 @@ This is the tattoo account and nothing else.
    what is already there in `knowledge\`, `ledgers\` or `data\`: the kit only adds files beside them
    (`ledgers\seed\` is merged by a tool, not copied over your ledgers).
 2. Python 3.12 (`py`): `winget install -e --id Python.Python.3.12` only if missing. Then
-   `py -m pip install --user faster-whisper opencv-python numpy pillow imagehash scipy yt-dlp curl_cffi tzdata pytest`
+   `py -m pip install --user faster-whisper opencv-python numpy pillow imagehash scipy yt-dlp tzdata pytest`
 3. ffmpeg 7.1 full build at `D:\ClaudeInk\ffmpeg71\bin\ffmpeg.exe` and `ffprobe.exe` (set
    `CLAUDINK_FFMPEG` / `CLAUDINK_FFPROBE` if they live elsewhere).
 4. From `D:\ClaudeInk\reel-engine`, with `set PYTHONUTF8=1`:

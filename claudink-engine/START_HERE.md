@@ -23,7 +23,8 @@ You run on his Windows PC, where the footage lives, inside Claude Code. Your job
 **Goal: top-of-funnel reach that turns into follows and bookings.**
 - North Star: the share of posts that reach **5,000+ views within 72h** (the "hit rate"): 7% in
   October, 15% in September, 20% in August. Target 25%+, which at 2 posts a day means **3+ hits a
-  week** by week 3.
+  week** by week 3. The 7/15/20% were computed on lifetime views, so they are a
+  provisional baseline; the 72h series from `data-check` is the real one and the target applies to it.
 - Support metrics: shares per 1K views (the gate past the ~1.3K test pool), saves per 1K, follows
   per day (an estimate), zero-post days (target 0).
 
@@ -61,6 +62,13 @@ You run on his Windows PC, where the footage lives, inside Claude Code. Your job
   spam: no bursts, no re-uploads, no identical files, no evasion tricks (mirroring, speed changes).
 - Never pass cookies or a browser session to any tool. Never run yt-dlp with `--cookies` or
   `--cookies-from-browser`.
+- Never use /chrome, Claude in Chrome, browser-use, desktop-commander or any browser or screen-control
+  tool. Instagram is reached only by the anonymous yt-dlp command in section 8: never add --impersonate,
+  --user-agent, --add-header, a proxy, a login, or another downloader. A login wall or 429 stops all
+  Instagram downloads for 24 h; it is not a tool failure to route around.
+- The kit's `.claude/settings.json`, agents, skills, CLAUDE.md and `tools/` are never rewritten from
+  scratch. You may add deny rules or narrow allows; removing a deny or widening an allow is not covered
+  by his yes.
 - His format rules (exact details in RULES.md section 2):
   - Session stories: raw audio, no music, no grading, 2K HDR in the original format, full source
     width (letterbox), strict chronology, complete sentences, audio with its own footage, no black
@@ -128,7 +136,7 @@ You run on his Windows PC, where the footage lives, inside Claude Code. Your job
 - Time zone: **America/New_York** for everything you write, via `config.TZ` (`zoneinfo`; DST ends
   Sun Nov 1 at 02:00). Never a hard-coded offset. Preflight checks the PC clock is on Eastern time.
 - Python: `py` (install 3.12 via `winget install -e --id Python.Python.3.12` only if missing). pip
-  user installs: `faster-whisper opencv-python numpy pillow imagehash scipy yt-dlp curl_cffi tzdata
+  user installs: `faster-whisper opencv-python numpy pillow imagehash scipy yt-dlp tzdata
   pytest`. Whisper runs on CPU int8; try CUDA only if it works first time.
 - Shell: Git Bash or PowerShell. Quote every path (they have spaces). Logic in Python under
   `tools\`, never long one-liners. Set `PYTHONUTF8=1` (CLAUDE.md and run_daily.cmd do).
@@ -183,11 +191,20 @@ You run on his Windows PC, where the footage lives, inside Claude Code. Your job
    - Run the gates (`py -m tools.gates`), then the critic panel if a calibrated panel exists
      (section 8), else the gates decide. Fix the EDL and re-render (only changed segments
      re-encode) up to 4 passes. Deliver with `py -m tools.deliver` (section 10).
+   - **If only one reel passes,** deliver it as A today rather than nothing; B comes tomorrow. G1 luma,
+     G5, G7, G9, G10 and G11 never relax.
    - **If nothing passes:** never a zero day. A reel that fails G1 (frame 1) or G7 (chronology) is
      never delivered. Fall back in this order: the best HOLD cut re-gated today; a labelled-hours
      b-roll from `Shop shorts` with known pieces (always makeable); a story whose only failures are
      soft gates, with the failures listed in POST_THIS. Log the reason in `runs/<date>.md`.
    - Do not deliver `Copy_DehRelXKsds` to IG (it re-uploads a posted reel; `config.NEVER_REUPLOAD`).
+   - Sessions map to Drive folders through `sessions.csv` `folder` (`|`-separated for multi-day). Fill it
+     first from reel-video-learnings.md and HISTORY.md; a folder no log names gets one contact sheet to
+     identify its piece. An EDL `session` must match a sessions.csv row. Cap: 4 posts per session (his and
+     ours together), then rest 7 days from the last post.
+   - Deadlines: A, its chat copy and POST_THIS in `post/<today>/` by 09:45 ET; B by 12:45 ET. Past a relay
+     time, the Drive mirror is the delivery and line 1 of POST_THIS says "Today's A is in Drive ->
+     ClaudeInk Reels/POST/<date>: post it now, alone".
 7. **Data.** `py -m tools.reels_analysis import` then `report` then `data-check` ->
    `register/data-check.md`: confirm or refute every number in WEAK_POINTS.md, recompute the hit
    rate as 5K+ within 72h for Aug, Sep, Oct (the importer takes the last snapshot at or before
@@ -227,6 +244,10 @@ machine part that fixes it and the regression test that proves it. Each item: id
 (re-verified by you from fresh data), fix, test, status (OPEN, FIXED, WONT-FIX with reason,
 BLOCKED-ON-CLAUDIN with the one action he must take), date. Every new problem is W19+.
 
+**Clock rule:** at the top of every iteration and before every render, read the time in ET. Between
+06:15 and 10:30, if `runs/<today>.md` does not exist yet, run the daily program yourself (daily-run
+skill) under the same lock first, then continue. A scheduled run that finds a live lock and that file exits.
+
 **Each iteration (at most 3 candidates, one tiled image per reel for the critic, a fixed bench of footage):**
 1. **Re-verify.** Recompute the evidence for each OPEN item from fresh data (`data-check`). Mark
    refuted claims; keep the true ones.
@@ -255,7 +276,8 @@ BLOCKED-ON-CLAUDIN with the one action he must take), date. Every new problem is
   obtained) and the gates alone decide.
 - **E4.** The hook gate passes for every delivered hook: 0 burned hooks, 0 losing types, each
   matches frame 1, each <= 55 characters.
-- **E5.** The ledgers are complete: `footage.csv` covers every listed folder; every posted reel
+- **E5.** The ledgers are complete: `footage.csv` lists every video file in every listed folder (from
+  directory listings and the existing shop\meta dumps, with full probe rows for every session cut); every posted reel
   since Oct 8 that exists locally or could be downloaded is fingerprint-matched to a delivery or
   marked as his own; the rest are marked "unverifiable".
 - **E6.** A full delivery dry-run passes (`runs/dryrun/<date>/`): <= 2 reels, slots >= 3 h apart,
@@ -287,24 +309,30 @@ end this session. The scheduled tasks are the program; do not keep this session 
 5. Update `experiments.md` (section 9).
 6. **Plan the two slots** (`py -m tools.deliver plan --now <now>`):
    - **A = a SEND reel** at 11:00-11:30 ET, posted alone: a session story with an endurance, hours,
-     travel, first-tattoo or return stake. (X1 morning arm: delivered the day before for ~07:00.)
-   - **B = a SAVE/TRUST reel** >= 3 h later, at 14:30-16:00 ET: a healed reveal, a talking head
-     with the numbers, price/value, or a labelled-hours b-roll.
+     travel, first-tattoo or return stake. (X1 morning arm: `A_0700_*` delivered into `post/<tomorrow>/` the day before;
+     today's POST_THIS tells him it is in Drive for ~07:00 tomorrow.)
+   - **B = a SAVE/TRUST reel** >= 3 h later, at 14:30-16:00 ET, ranked by hit history: (1) a healed
+     reveal or talking head with every number spoken; (2) a session story from a different session, while
+     >= 3 days of slot-A footage remain; (3) a b-roll that carries an idea (hours labels from pieces.csv,
+     an endurance number, a viewer question). A plain montage is never B.
    - If he already posted today, the planner shifts the slots to keep >= 3 h spacing and <= 2 total.
-   - Never two reels of the same type or the same session on one day.
+   - Never two reels from the same session on one day.
 7. **Source.** A new session folder first. Then unposted footage in `sessions.csv` that is out of
    rest. Then the HOLD queue, re-gated today (a hook burned since or a session spent since fails it).
    Then a b-roll short with a fresh idea. **Never zero:** if nothing passes, deliver the best HOLD cut
    and log why (section 3 step 6 fallbacks).
 8. **Build -> gates -> critic -> fix** (<= 4 passes) -> deliver (section 10). Refill HOLD to >= 4
-   with the runners-up (`py -m tools.deliver hold`), named `HOLD_<date>_<name>`; never deliver two
+   with cuts from sessions other than today's two, at most one per session (`py -m tools.deliver hold`;
+   today's runners-up are discarded, never held), named `HOLD_<date>_<name>`; never deliver two
    HOLD cuts together.
 9. **After a breakout** (>= 5K views by 24 h, RULES D8): write `state/breakout.json` {shortcode,
    session, at}; POST_THIS then opens with "share it to the grid"; tomorrow's slot A is the
    new-angle sequel from that session (healed, day 2, the reaction), never a re-cut; then rest that
    session 7 days.
-10. Also build **tomorrow's** pair when time allows, into `hold/next/`, so the morning only has to
-    re-gate it (it is delivered once: `deliver` refuses a second copy by frame-1 hash). Run
+10. Also build **tomorrow's** pair when time allows and deliver it with `py -m tools.deliver` straight
+    into `post/<tomorrow>/` (POST_THIS marked "prepared <today> HH:MM"), so a failed or late morning run
+    is never a zero day. Tomorrow's run re-gates that folder against the newest CSV and ledgers and stages
+    any reel that now fails into `_to_delete/` before building its replacement. Run
     `py -m tools.clean_cache` (path-guarded to `cache/`).
 11. **Stock check:** if less than 3 days of slot-A footage is left, put "Upload your last session's
     glasses clips to Drive" at the top of POST_THIS (`state/blocked.txt`).
@@ -398,7 +426,8 @@ if the profile is older than 30 days; write `weekly/<date>.md` (<= 20 lines) and
 **Building the panel.** His own public reels only, never with cookies or his browser session:
 winners DebCcJvqDI4, DeE6fyBKWpz, DehJPlnKk8I, DdCXyjKqI4I, DdIo7YkgJ9d, Ddf6nmHAAEW, DcaS1GggTH3;
 medians DecSt5ZKl46, Deb9ku4ROcV, DeUn6DRqdCs, DehQeZMKCOL; flops DeH4xUmKrxz, DePYEZMKGLX,
-DeP08KMK3he, DeOL0b1KIfu. Sources, in order: (1) local copies, when a legacy render in
+DeP08KMK3he, DeOL0b1KIfu; story flops when obtainable within the cap:
+Dd9yuXVqkry, Dd5M6OmqpqS, Dd61O4Kq_0V, Dd5AMguql86 (a shorts-only flop set lets a length-only rule pass). Sources, in order: (1) local copies, when a legacy render in
 `D:\ClaudeInk\out\` fingerprint-matches a posted reel (the Claude-edited reels log says which);
 (2) `py -m tools.panel plan` + `download` via yt-dlp, at most 20 during burn-in and 6 a day after,
 3-5 s between requests, one attempt per shortcode, stop the whole batch for 24 h on the first 429 or
@@ -412,8 +441,9 @@ contact sheet every 2 s, a timestamped transcript, the length, and for candidate
 reasons, using RULES.md D3-D7 and his winners' patterns. **Calibration** (`py -m tools.panel
 calibrate`): winners must rank above flops in >= 80% of (winner, flop) pairs. If not, sharpen the
 rubric and retry (up to 3 times). If still failing, or if fewer than 3 winners and 2 flops could be
-obtained, log "critic uncalibrated" and let the gates decide. Shipped candidates must land in the top
-third with no flop call. Re-run calibration weekly.
+obtained, log "critic uncalibrated" and let the gates decide. A candidate ships when the critic does not call
+it flop, ranks it above every flop packet and above at least half of the median packets. Winners measure
+calibration; they never set the bar. Re-run calibration weekly.
 
 ## 9. Learning loop
 - **Attribution.** For each new posted reel you can obtain (section 8 sources; <= 6 a day),

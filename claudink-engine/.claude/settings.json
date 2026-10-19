@@ -75,7 +75,15 @@
       "Edit(//f/My Drive/Atlas*/**)",
       "Edit(//f/My Drive/Talking head*/**)",
       "Edit(//f/My Drive/Rework*/**)",
-      "Edit(//c/Users/Firelake330/Desktop/igserver/**)"
+      "Edit(//c/Users/Firelake330/Desktop/igserver/**)",
+      "mcp__claude-in-chrome__*",
+      "mcp__plugin_browser-use_browser-use__*",
+      "mcp__plugin_desktop-commander_desktop-commander__*",
+      "mcp__Metricool_Social_Media_Management__*",
+      "Bash(* --impersonate *)",
+      "Bash(* --user-agent *)",
+      "Bash(instaloader *)",
+      "Bash(gallery-dl *)"
     ],
     "additionalDirectories": [
       "F:/My Drive/ClaudeInk Reels"
