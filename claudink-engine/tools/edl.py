@@ -4,10 +4,12 @@ What: the one module that knows the shape of an EDL JSON file. It loads, validat
 lays segments on a timeline, decides the export transfer (HLG vs SDR), and does the two
 transcript-driven refinements every story cut needs before rendering:
 
-- refine_outpoints: every out-point lands in the pause after the last word (not on the word,
-  because whisper word-end times run early and clipped the last word on ~60% of the Oct 2
-  cuts), finishes an unfinished sentence, then follows the 300-3400 Hz voice energy while the
-  voice is still sounding; in-points move back to a word onset when speech is already on.
+- refine_outpoints: every out-point lands exactly OUT_PAD_S after the last word (in both
+  directions: a clipped last word is finished, dead air after the line is pulled back; whisper
+  word-end times run early and clipped the last word on ~60% of the Oct 2 cuts), finishes an
+  unfinished sentence, then follows the 300-3400 Hz voice energy while the voice is still
+  sounding (a laugh, a trailing "mmm"); in-points move back to a word onset when speech is
+  already on. 6A: no dead air.
 - jumpcut_silences: any silence longer than config.JUMPCUT_SILENCE_S inside a dialogue
   island is cut out by splitting the segment (no dead air).
 
@@ -18,6 +20,18 @@ Export transfer: expected_transfer() decides hlg|sdr and records export {transfe
 transfer_decided, reason}. To FORCE a transfer an EDL author writes export {"transfer": "hlg",
 "forced": true} (render_story --transfer hlg|sdr sets the same); a bare export.transfer is only
 the record of an earlier render and is decided again on the next render.
+Mixed sources (HLG glasses + the SDR Canon reveal) are the one place the kit converts between
+SDR and HDR, which START_HERE section 12 ("never convert SDR<->HDR") and 6A ("2K HDR in the
+original format") do not foresee: a single file cannot carry both. Policy: SDR export, the HLG
+segments tonemapped (TRANSFER_POLICY_NOTE), unless forced "hlg" (then the Canon reveal is
+upconverted). The note is written into export.policy_note so the daily run can log the
+difference in runs/<date>.md (CLAUDE.md: "RULES.md wins ... log the difference") and the
+rules-keeper can confirm SDR-on-mixed vs forced-HLG.
+
+order_key: an ISO-8601 time with offset (footage.csv capture_time), or the day-stage form
+dNN-sMM (hand-typed; matched case-insensitively with 1-2 digits and normalised). A naive ISO
+time is taken as config.TZ with fold=0 (the first of the two 01:xx readings on the November
+fall-back night); footage.csv keys always carry the offset, so only hand-typed keys are affected.
 
 Library functions return data and never print. All writes go through tools.safeio.
 CLI: py -m tools.edl validate x.json | refine x.json --transcript words.json --out y.json [--jumpcut]
@@ -50,7 +64,13 @@ ENERGY_STOP_BEFORE_WORD_S = 0.03
 ENERGY_HOP_S = 0.010
 ENERGY_WIN_S = 0.020
 TERMINAL_PUNCT = (".", "?", "!", "...", "\u2026")
-_DAY_STAGE_RE = re.compile(r"^d\d{2}-s\d{2}$")
+_DAY_STAGE_RE = re.compile(r"^d(\d{1,2})-s(\d{1,2})$", re.IGNORECASE)
+OVERLAP_TOL_S = 0.001          # consecutive same-clip dialogue segments may not share more than this
+CLASS_NAMES = {0: "ISO time", 1: "dNN-sMM", 2: "other"}
+TRANSFER_POLICY_NOTE = ("mixed HLG+SDR sources: START_HERE 12 says never convert SDR<->HDR, but one "
+                        "file cannot carry both; policy is an SDR export with the HLG segments tonemapped "
+                        "(forced hlg upconverts the SDR Canon reveal instead). Log this in runs/<date>.md; "
+                        "rules-keeper to confirm SDR-on-mixed vs forced-HLG in RULES.md")
 
 SEG_KEYS = ("clip", "in", "out", "kind", "order_key", "tags", "note")
 EDL_KEYS = ("name", "type", "session", "multi_day", "canvas", "segs", "hooks", "caption",
@@ -178,13 +198,15 @@ def save(edl: EDL, path: Path | str) -> Path:
 def order_key_sortable(key: str) -> tuple:
     """Class + sortable value for an order_key.
 
-    (0, epoch_seconds) for an ISO-8601 time with offset (a naive ISO time is taken as config.TZ),
-    (1, key) for the day-stage form "dNN-sMM", (2, key) for anything else.
+    (0, epoch_seconds) for an ISO-8601 time with offset (a naive ISO time is taken as config.TZ,
+    fold=0), (1, "dNN-sMM") for the day-stage form (case-insensitive, 1-2 digits, normalised so
+    "D1-S3" and "d01-s03" are the same key), (2, key) for anything else.
     Keys of different classes never compare; validate() reports a mix as an error.
     """
     k = (key or "").strip()
-    if _DAY_STAGE_RE.match(k):
-        return (1, k)
+    m = _DAY_STAGE_RE.match(k)
+    if m:
+        return (1, f"d{int(m.group(1)):02d}-s{int(m.group(2)):02d}")
     iso = k
     if re.search(r"[+-]\d{4}$", iso):                       # "-0400" -> "-04:00"
         iso = iso[:-2] + ":" + iso[-2:]
@@ -229,9 +251,16 @@ def validate(edl: EDL) -> list[str]:
         errs.append("segs must not be empty")
     seen_c = False
     prev_key = None
-    classes = set()
+    classes: dict[int, list[int]] = {}
     for i, s in enumerate(edl.segs):
         tag = f"segs[{i}]"
+        prev = edl.segs[i - 1] if i > 0 else None
+        if (prev is not None and s.clip and _same_clip(prev.clip, s.clip) and "I" in (prev.kind, s.kind)
+                and prev.in_ == prev.in_ and s.in_ == s.in_ and prev.out == prev.out and s.out == s.out):
+            overlap = min(prev.out, s.out) - max(prev.in_, s.in_)
+            if overlap > OVERLAP_TOL_S:
+                errs.append(f"{tag}: overlaps segs[{i - 1}] on the same clip by {overlap:.3f} s "
+                            f"({prev.in_}-{prev.out} then {s.in_}-{s.out}): the same words would play twice")
         if not s.clip:
             errs.append(f"{tag}: clip is required")
         if s.in_ != s.in_ or s.out != s.out:                 # NaN check
@@ -257,12 +286,13 @@ def validate(edl: EDL) -> list[str]:
             errs.append(f"{tag}: order_key is required")
         else:
             key = order_key_sortable(s.order_key)
-            classes.add(key[0])
+            classes.setdefault(key[0], []).append(i)
             if prev_key is not None and key[0] == prev_key[0] and key < prev_key:
                 errs.append(f"{tag}: order_key {s.order_key!r} goes backwards (must be monotonic)")
             prev_key = key
     if len(classes) > 1:
-        errs.append("order_key values mix classes (ISO time, dNN-sMM, other); use one scheme per EDL")
+        where = "; ".join(f"{CLASS_NAMES[c]} in segs {idx}" for c, idx in sorted(classes.items()))
+        errs.append(f"order_key values mix classes ({where}); use one scheme per EDL")
     if edl.export:
         t = edl.export.get("transfer")
         if t not in (None, "auto", "hlg", "sdr"):
@@ -316,15 +346,26 @@ def expected_transfer(edl: EDL, probe: Callable[[str], dict] | dict) -> str:
     """Decide "hlg" or "sdr" for the export and record it in edl.export
     {transfer, transfer_decided, reason}.
 
-    probe: callable(clip) -> ffprobe-style dict (with is_hlg or transfer), or a {clip: dict} map.
+    probe: callable(clip) -> ffprobe-style dict (with is_hlg or transfer), or a {clip: dict} map
+    (keyed by path or file name; a clip missing from the map raises KeyError, never "SDR").
     Policy: all sources HLG -> hlg; all SDR -> sdr; a mix -> sdr (the Canon reveal forces an
     SDR export; HLG segments are tonemapped with the standard chain) unless the author forced
     "hlg" with export {transfer: "hlg", forced: true} (then SDR segments are converted to HLG with
     zscale). The decision is separate from the override: `transfer` and `transfer_decided` carry
     the decided value, and only `forced: true` makes `transfer` an input on the next render.
+    A mix also writes export.policy_note (TRANSFER_POLICY_NOTE, see the module doc / START_HERE 12).
     """
     forced = forced_transfer(edl.export)
-    lookup = (lambda c: probe.get(c) or probe.get(Path(c).name) or {}) if isinstance(probe, dict) else probe
+    if isinstance(probe, dict):
+        def lookup(c: str) -> dict:
+            info = probe.get(c)
+            if info is None:
+                info = probe.get(Path(c).name)
+            if info is None:
+                raise KeyError(f"probe map has no entry for clip {c!r} (nor {Path(c).name!r})")
+            return info
+    else:
+        lookup = probe
     flags = {s.clip: _is_hlg(lookup(s.clip)) for s in edl.segs}
     n_hlg = sum(1 for v in flags.values() if v)
     n_sdr = len(flags) - n_hlg
@@ -343,6 +384,10 @@ def expected_transfer(edl: EDL, probe: Callable[[str], dict] | dict) -> str:
     edl.export["reason"] = reason
     if forced is not None:
         edl.export["forced"] = True
+    if n_hlg and n_sdr:
+        edl.export["policy_note"] = TRANSFER_POLICY_NOTE
+    else:
+        edl.export.pop("policy_note", None)
     return t
 
 
@@ -411,16 +456,20 @@ def refine_outpoints(edl: EDL, provider, audio_energy: Callable | None = None) -
        stopping 0.03 s before the next word.
     4. in: if a word is sounding at in, move back to its onset (max config.IN_ONSET_MAX_S);
        never for the first segment of the reel (no dead lead-in on the opener).
+    Step 1 moves the out-point in BOTH directions: a clipped last word is finished, and dead air
+    the editor left after the line is pulled back to last word end + OUT_PAD_S (recorded as
+    extra["refined"]["pulled_back_s"]). Nothing is kept "as a reaction beat" on the transcript
+    alone: a laugh or a trailing sound after the last word is voice energy, and step 3 follows it.
     Guards (reviewer findings, Oct 18):
     - Only words INSIDE the segment count for step 1. A segment with no transcribed word is left
       untouched and marked extra["refined"]["skipped"] = "no words in segment" (whisper may have
       missed the line: run VAD and non-VAD before deciding a line does not exist), instead of
       collapsing onto a word that ended before the in-point.
-    - The editor's out is only pulled EARLIER when the dead air after the last word exceeds
-      config.JUMPCUT_SILENCE_S; a shorter pause (a reaction, a laugh) is kept and only extended.
-    - Two consecutive segments on the same clip never overlap: this segment's out is capped at
-      the next segment's original in, and its in never moves before the previous segment's
-      refined out (the same words must not play twice across a jump cut).
+    - Two consecutive segments on the same clip should never overlap: this segment's out is capped
+      at the next segment's original in, and its in never moves before the previous segment's
+      refined out (the same words must not play twice across a jump cut). When the previous
+      segment already covers this one so the clamp would leave < 0.1 s, the editor's in is kept
+      and extra["refined"]["overlap_with_prev_s"] records the overlap; validate() then reports it.
     The original in/out are kept in seg.extra["refined"].
     """
     energy = audio_energy or ffmpeg_voice_energy
@@ -456,12 +505,10 @@ def refine_outpoints(edl: EDL, provider, audio_energy: Callable | None = None) -
                 break
             spoken_out = nxt.end + config.OUT_PAD_S
             cur, li = nxt, li + 1
-        dead_air = seg.out - (spoken_out - config.OUT_PAD_S)
-        if spoken_out >= seg.out or dead_air > config.JUMPCUT_SILENCE_S:
-            new_out = spoken_out            # land in the pause (or pull a long silence back)
-        else:
-            new_out = seg.out               # the editor's short pause is kept; only extend
-        new_out = max(new_out, seg.in_ + 0.1)
+        refined: dict = {"in": round(seg.in_, 3), "out": round(seg.out, 3)}
+        if spoken_out < seg.out - 1e-6:
+            refined["pulled_back_s"] = round(seg.out - spoken_out, 3)   # dead air removed (6A)
+        new_out = max(spoken_out, seg.in_ + 0.1)   # land OUT_PAD_S into the pause, both directions
         # 3: follow the voice energy
         next_words = [w for w in words if w.start >= new_out - 1e-6]
         limit = new_out + config.OUT_EXTEND_MAX_S
@@ -486,18 +533,25 @@ def refine_outpoints(edl: EDL, provider, audio_energy: Callable | None = None) -
                         break
                 new_out = min(max(new_out, t_ext), limit)
         # never run into the next segment of the same clip (its words would play twice)
-        if same_next and nxt_seg.in_ > seg.in_ + 0.1:
-            new_out = min(new_out, nxt_seg.in_)
+        if same_next and nxt_seg.in_ > seg.in_ + 0.1 and new_out > nxt_seg.in_:
+            refined["out_capped_at_next_in"] = round(nxt_seg.in_, 3)
+            new_out = nxt_seg.in_
         # 4: in-point onto the word onset
         if idx > 0:
             on = [w for w in words if w.start < seg.in_ < w.end]
             if on:
                 new_in = max(on[0].start, seg.in_ - config.IN_ONSET_MAX_S, 0.0)
-            if same_prev and prev.out > new_in:
-                new_in = max(new_in, prev.out)
-                if new_out - new_in < 0.1:
+            if same_prev and prev.out > new_in + 1e-6:
+                clamped = max(new_in, prev.out)
+                if new_out - clamped >= 0.1:
+                    new_in = clamped
+                    refined["in_clamped_to_prev_out"] = round(prev.out, 3)
+                else:
+                    # the previous segment already covers this one: keep the editor's in and
+                    # record the overlap so validate()/G7 report it instead of hiding it
                     new_in = seg.in_
-        extra["refined"] = {"in": round(seg.in_, 3), "out": round(seg.out, 3)}
+                    refined["overlap_with_prev_s"] = round(prev.out - seg.in_, 3)
+        extra["refined"] = refined
         new_segs.append(seg.copy(in_=round(new_in, 3), out=round(new_out, 3), extra=extra))
     return edl.copy(segs=new_segs)
 

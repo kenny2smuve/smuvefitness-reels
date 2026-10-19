@@ -7,22 +7,38 @@ This module makes "exactly two reels a day, each with a dated slot, two hooks an
 mechanical, and refuses everything the rules forbid before a single file is copied.
 
 What ``deliver`` checks, in order, before copying anything:
-1. ``<stem>.gates.json`` exists next to the reel and ``pass`` is true (``force_reason`` overrides
-   this one check and is logged into deliveries.csv notes);
+1. ``<stem>.gates.json`` and ``<stem>.edl.json`` exist next to the reel (or --edl) and gates
+   ``pass`` is true (``force_reason`` overrides the gates verdict only, logged into
+   deliveries.csv notes); the chat copy is under config.CHAT_COPY_MAX_BYTES (hard);
 2. the reel stem is not in config.NEVER_REUPLOAD (hard);
 3. post/<date>/ plus deliveries.csv hold fewer than config.MAX_POSTS_PER_DAY reels for that
    date and the slot letter is unused (hard; idempotent re-runs never exceed 2);
-4. the other reel of the day is not the same type or session (force_reason overrides) and not
+4. the time rules (section 10 and 12): the slot is at least config.MIN_LEAD_MINUTES in the
+   future unless it is on a later date (force_reason overrides this one, logged), before
+   config.LATEST_POST_HOUR, at least config.MIN_GAP_HOURS from the other delivered slot and from
+   every post of his that day (data/reels.csv posted_et), and his posts plus the delivered reels
+   stay under the daily cap (a post of his within 30 min of a delivered slot is that slot);
+5. the other reel of the day is not the same type or session (force_reason overrides) and not
    also a HOLD cut (hard: never two HOLD cuts together);
-5. the two hooks pass tools.hook_gate.check_pair against the hook and caption ledgers and the
-   pieces hours, and the caption ends with the exact tail (hard);
-6. frame-1 phash (tools.fingerprint) matches no delivered or posted reel (hard re-upload guard).
+6. exactly two hooks that pass tools.hook_gate.check_pair against the hook and caption ledgers
+   and the pieces hours, a caption body not already used (captions_used.csv and delivered rows),
+   and the caption ends with the exact tail (hard);
+7. the re-upload guard (hard): frame-1 phash against every deliveries.csv row that ever carried a
+   render (delivered, posted, held, legacy, ...; only dryrun/cancelled/planned are skipped, and a
+   HOLD cut is not blocked by its own held row), plus frame 1 and the full 9-frame signature
+   against the signature store kinds posted, delivery and legacy (W4, W11).
 
 Then it copies reel, chat copy, .edl.json and .gates.json into post/<date>/ as
 ``<slot>_<HHMM>_<slug>.mp4`` (+ ``_chat.mp4``, ``.edl.json``, ``.gates.json``), appends
-deliveries.csv, files the signature in data/signatures.json, mirrors the files to the Drive
-POST folder (skipped with a note when the Drive folder is missing) and regenerates
+deliveries.csv, records both hooks in hooks.csv (status ok) and the caption in captions_used.csv,
+files the signature in data/signatures.json, mirrors the files to the Drive POST folder (skipped
+with a note when the Drive folder is missing; a file already there with the same size is kept, a
+copy error is noted, never raised, so a retry regenerates POST_THIS) and regenerates
 post/<date>/POST_THIS.txt (plain, short, for his phone) plus its Drive copy.
+
+POST_THIS starts with every non-empty line of state/blocked.txt (prefixed "BLOCKED: " when the
+line does not start with it) and every line of state/notice.txt verbatim (the section 5.11
+stock warning), then the breakout line while state/breakout.json is < 24 h old.
 
 The HOLD queue: ``hold`` files a runner-up as hold/HOLD_<date>_<name>.mp4 (+ sidecars),
 ``hold_list`` / ``hold_pick`` read it back. ``plan_today`` wraps tools.slot_planner.plan with
@@ -62,8 +78,16 @@ BREAKOUT_MAX_AGE_H = 24.0
 DELIVERIES_HEADER = ["id", "date", "slot", "type", "file", "chat_file", "phash", "hook1", "hook2",
                      "caption", "status", "posted_shortcode", "views_24h", "views_72h",
                      "shares_72h", "saves_72h", "avg_watch_72h", "tests", "notes"]
-# deliveries.csv rows that never reached post/<date>/ and do not count or guard anything
+# deliveries.csv rows that never reached post/<date>/ and do not count against the daily cap
 NOT_COUNTED = ("held", "legacy", "dryrun", "cancelled")
+# deliveries.csv rows that never carried a real render: the only ones the re-upload guard skips
+# (legacy and held rows DID carry one: the ~180 old renders and the HOLD queue, W4)
+REUPLOAD_SKIPPED = ("dryrun", "cancelled", "planned")
+# signature-store kinds the re-upload guard compares against (legacy = the old D:\ClaudeInk\out)
+REUPLOAD_KINDS = ("posted", "delivery", "legacy")
+HIS_POST_SAME_SLOT_MIN = 30      # a post of his this close to a delivered slot IS that slot
+HOOKS_HEADER = ["hook", "type", "used_on", "reel", "result_views", "status"]
+CAPTIONS_HEADER = ["caption", "used_on", "reel"]
 _DELIVERED_RE = re.compile(r"^([AB])_(\d{2})(\d{2})_(.+)\.mp4$", re.IGNORECASE)
 _HOLD_RE = re.compile(r"^HOLD_(\d{4}-\d{2}-\d{2})_(.+)$")
 _HOLD_FILE_RE = re.compile(r"^HOLD_(\d{4}-\d{2}-\d{2})_(.+)\.mp4$", re.IGNORECASE)
@@ -282,14 +306,18 @@ def pieces_without_hours(pieces: Sequence[str], rows: Sequence[dict] | None = No
 
 
 def blocked_line(now: datetime, d: date | str, entries: Sequence[dict]) -> list[str]:
-    """Top BLOCKED lines: state/blocked.txt, then any reel delivered after its relay time."""
+    """Top lines: every non-empty line of state/blocked.txt (prefixed BLOCKED: when missing),
+    every line of state/notice.txt verbatim, then any reel delivered after its relay time."""
     lines: list[str] = []
     p = config.STATE / "blocked.txt"
     if p.is_file():
-        txt = safeio.read_text(p).strip()
-        if txt:
-            first = txt.splitlines()[0].strip()
-            lines.append(first if first.upper().startswith("BLOCKED:") else f"BLOCKED: {first}")
+        for raw in safeio.read_text(p).splitlines():
+            line = raw.strip()
+            if line:
+                lines.append(line if line.upper().startswith("BLOCKED:") else f"BLOCKED: {line}")
+    p = config.STATE / "notice.txt"
+    if p.is_file():
+        lines.extend(line.strip() for line in safeio.read_text(p).splitlines() if line.strip())
     dd = _as_date(d)
     for e in entries:
         relay = _at(dd, RELAY_TIMES.get(e.get("slot", ""), "10:05"))

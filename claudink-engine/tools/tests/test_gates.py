@@ -24,9 +24,9 @@ pytestmark = pytest.mark.slow
 FPS = 24
 TODAY = date(2026, 10, 19)
 LETTERBOX = "pad=1440:2560:0:320"
-SEG_DUR = {"I": 4.8, "M18": 1.8, "M29": 2.9, "C": 3.5, "BARS": 3.9, "GRAY": 3.9, "BLACK": 0.5}
+SEG_DUR = {"I": 4.8, "M18": 1.8, "M29": 2.9, "C": 3.5, "BARS": 3.9, "GRAY": 3.9, "BLACK": 0.5, "STILL": 4.5}
 CLIP_NAMES = {"I": "video-001.mp4", "M18": "video-002.mp4", "M29": "video-003.mp4", "C": "MVI_0001.mp4",
-              "BARS": "video-010.mp4", "GRAY": "video-011.mp4", "BLACK": "video-012.mp4"}
+              "BARS": "video-010.mp4", "GRAY": "video-011.mp4", "BLACK": "video-012.mp4", "STILL": "video-013.mp4"}
 # 10 segs, 38.0 s: 4 needle shots, approval+reaction, camera, finished hold 3.5 s last
 PLAN = [
     ("I", "I", ["greeting", "hours"]),
@@ -64,8 +64,8 @@ def _segment(path: Path, kind: str) -> Path:
     if kind in ("I", "M18", "M29", "C"):
         pattern = f"testsrc2=size=1440x1920:rate={FPS}:duration={sec}"
         vf = "scroll=h=0.004:v=0.002," + LETTERBOX          # a moving opener, like a greeting at the door
-    elif kind == "BARS":
-        pattern = f"smptebars=size=1440x1920:rate={FPS}:duration={sec}"
+    elif kind in ("BARS", "STILL"):
+        pattern = f"smptebars=size=1440x1920:rate={FPS}:duration={sec}"   # static: a frozen picture
         vf = LETTERBOX
     elif kind == "GRAY":
         pattern = f"color=c=0x202020:size=1440x1920:rate={FPS}:duration={sec}"
@@ -247,6 +247,46 @@ def test_twenty_second_story_fails_g8(studio):
     # multi-day rule is wider but still has the floor
     rep_md = studio.run(studio.post / "A_short.mp4", multi_day=True)
     assert not gate(rep_md, "G8")["ok"] and gate(rep_md, "G8")["value"]["max_s"] == 75.0
+    # the same 20 s file is too short for a talking head (30-42 s)
+    rep_th = studio.run(studio.post / "A_short.mp4", "th")
+    g8 = gate(rep_th, "G8")
+    assert not g8["ok"] and "outside 30-42s" in g8["detail"] and "talking head" in g8["detail"]
+
+
+def test_short_broll_fails_g8_floor(studio):
+    plan = [("M18", "M", ["station"]), ("M29", "M", ["piece"]), ("M29", "M", ["piece"])]       # 7.6 s
+    doc_over = {"type": "broll", "session": ""}
+    reel = studio.concat([studio.clips[ck] for ck, _k, _t in plan], studio.post / "A_tiny.mp4")
+    studio.write_edl(studio.edl(plan, "A_tiny", **doc_over), studio.post / "A_tiny.edl.json")
+    make_clip(studio.post / "A_tiny_chat.mp4", seconds=0.5, w=360, h=640, fps=FPS, audio="speech")
+    rep = studio.run(reel, "broll")
+    g8 = gate(rep, "G8")
+    assert not g8["ok"] and "outside >= 10s" in g8["detail"] and 7.0 <= g8["value"]["duration_s"] <= 8.2
+    assert g8["value"]["max_s"] is None and g8["value"]["min_s"] == 10.0
+    assert gate(rep, "G2")["ok"], gate(rep, "G2")["detail"]        # station first and moving
+
+
+def test_frozen_stretch_mid_reel_fails_g5_but_final_hold_passes(studio):
+    # 4.5 s of a still picture at 9.6-14.1 s, well before the finished hold
+    plan = [PLAN[0], PLAN[1], ("STILL", "M", ["needle"]), PLAN[3], PLAN[9]]
+    rep = studio.run(studio.reel("A_frozen_mid", plan))
+    g5 = gate(rep, "G5")
+    assert not g5["ok"] and "frozen picture" in g5["detail"] and "not the final hold" in g5["detail"]
+    (s, e), = g5["value"]["freezes"]
+    assert 9.3 <= s <= 9.9 and 13.8 <= e <= 14.4
+    assert g5["value"]["black"] == []
+    # the same still as the last seg (tagged finished) is the hold the spec allows
+    plan2 = [PLAN[0], PLAN[1], PLAN[3], ("STILL", "C", ["finished"])]
+    rep2 = studio.run(studio.reel("A_frozen_end", plan2))
+    g5b = gate(rep2, "G5")
+    assert g5b["ok"], g5b["detail"]
+    assert len(g5b["value"]["freezes"]) == 1 and g5b["value"]["freezes"][0][0] >= 14.2
+    assert gate(rep2, "G4")["ok"] is False and "needle shots < 4" in gate(rep2, "G4")["detail"]
+    # without an EDL the only exemption is a freeze that runs to the end of the file
+    rep3 = studio.run(studio.post / "A_frozen_mid.mp4", edl=studio.post / "missing.edl.json")
+    assert not gate(rep3, "G5")["ok"]
+    rep4 = studio.run(studio.post / "A_frozen_end.mp4", edl=studio.post / "missing.edl.json")
+    assert gate(rep4, "G5")["ok"], gate(rep4, "G5")["detail"]
 
 
 # --------------------------------------------------------------------------- EDL variants on the base reel
@@ -265,6 +305,65 @@ def test_order_keys_swapped_fail_g7(studio):
     assert hard_fails(rep) == ["G7"]
 
 
+def test_story_content_variants_fail_g4(studio):
+    def run(mutate, name):
+        doc = _variant(studio, name)
+        mutate(doc)
+        return gate(studio.run(studio.base_reel, edl=studio.write_edl(doc, studio.post / f"v_{name}.edl.json")), "G4")
+
+    def fewer_needles(doc):
+        doc["segs"][4]["tags"] = ["stencil"]
+        doc["segs"][6]["tags"] = ["stencil"]
+    g4 = run(fewer_needles, "g4needle")
+    assert not g4["ok"] and "2 needle shots < 4" in g4["detail"] and g4["value"]["needle"] == 2
+
+    def no_camera(doc):
+        doc["segs"][7]["tags"] = ["talking"]
+    g4 = run(no_camera, "g4camera")
+    assert not g4["ok"] and g4["detail"] == "no seg tagged camera"
+
+    def no_approval_reaction(doc):
+        doc["segs"][8]["tags"] = ["talking"]
+    g4 = run(no_approval_reaction, "g4appr")
+    assert "no seg tagged approval; no seg tagged reaction" in g4["detail"]
+
+    def last_not_finished(doc):
+        doc["segs"][9]["tags"] = ["piece"]
+    g4 = run(last_not_finished, "g4last")
+    assert not g4["ok"] and "last seg is not tagged finished" in g4["detail"] and g4["value"]["last_seg_finished"] is False
+
+    def short_hold(doc):
+        doc["segs"][9]["out"] = 2.0
+    g4 = run(short_hold, "g4hold")
+    assert not g4["ok"] and "finished hold 2.0s < 3.0s" in g4["detail"] and g4["value"]["finished_hold_s"] == 2.0
+    # the soft critic entry is there in every case
+    rep = studio.run(studio.base_reel, edl=studio.post / "v_g4hold.edl.json")
+    assert hard_fails(rep) == ["G4"] and gate(rep, "G4", hard=False)["detail"].startswith("needs critic")
+
+
+def test_missing_order_key_fails_g7(studio):
+    doc = _variant(studio, "nokey")
+    del doc["segs"][2]["order_key"]
+    doc["segs"][5]["order_key"] = ""
+    rep = studio.run(studio.base_reel, edl=studio.write_edl(doc, studio.post / "v_nokey.edl.json"))
+    g7 = gate(rep, "G7")
+    assert not g7["ok"] and g7["detail"].startswith("seg 2 has no order_key (+1 more)") and g7["value"]["missing_order_keys"] == 2
+    assert hard_fails(rep) == ["G7"]
+
+
+def test_first_seg_without_subject_tag_fails_g1(studio):
+    doc = _variant(studio, "nosubj")
+    doc["segs"][0]["tags"] = ["talking", "hours"]
+    rep = studio.run(studio.base_reel, edl=studio.write_edl(doc, studio.post / "v_nosubj.edl.json"))
+    g1 = gate(rep, "G1")
+    # testsrc2 has no face; with an EDL the subject must then come from the first seg's tags
+    assert g1["value"]["face"] in (False, None)
+    assert not g1["ok"] and "name no subject" in g1["detail"] and "['hours', 'talking']" in g1["detail"]
+    assert "luma" not in g1["detail"] and "motion" not in g1["detail"]
+    assert g1["value"]["active_luma_min"] == studio.gates.ACTIVE_LUMA_MIN
+    assert hard_fails(rep) == ["G1"] and gate(rep, "G2")["ok"]
+
+
 def test_canon_seg_in_the_middle_fails_g7(studio):
     doc = _variant(studio, "cmid")
     doc["segs"][4]["kind"] = "C"
@@ -281,10 +380,34 @@ def test_missing_chat_copy_fails_g9(studio):
     g9 = gate(rep, "G9")
     assert not g9["ok"] and "chat copy missing" in g9["detail"]
     assert hard_fails(rep) == ["G9"]
-    # a transfer promised by the EDL export block must match the file
-    doc = _variant(studio, "trc", export={"transfer": "arib-std-b67"})
+    # the EDL export block speaks edl.py's vocabulary (hlg|sdr|auto); the SDR master matches sdr
+    doc = _variant(studio, "trc", export={"transfer": "hlg", "transfer_decided": "hlg"})
     rep2 = studio.run(studio.base_reel, edl=studio.write_edl(doc, studio.post / "v_trc.edl.json"))
-    assert "export.transfer" in gate(rep2, "G9")["detail"]
+    assert "export.transfer hlg (arib-std-b67)" in gate(rep2, "G9")["detail"] and hard_fails(rep2) == ["G9"]
+    for word in ("sdr", "auto"):
+        d = _variant(studio, "trc2", export={"transfer": word})
+        r = studio.run(studio.base_reel, edl=studio.write_edl(d, studio.post / "v_trc2.edl.json"))
+        assert gate(r, "G9")["ok"], gate(r, "G9")["detail"]
+
+
+def test_g9_transfer_words_against_an_hlg_master(studio):
+    """gate_g9 alone on a probe of an HLG file: export.transfer hlg passes, sdr fails."""
+    g = studio.gates
+    hlg = make_clip(studio.base / "hlg_g9.mp4", seconds=0.25, fps=FPS, hdr=True, audio="sine",
+                    pattern=f"testsrc2=size=1440x2560:rate={FPS}:duration=0.25")
+    info = g.probe(hlg)
+    assert info["color_transfer"] == "arib-std-b67"
+    chat = make_clip(studio.base / "hlg_g9_chat.mp4", seconds=0.25, w=360, h=640, fps=FPS, audio="sine")
+
+    def g9(transfer):
+        ctx = g.Ctx(reel=hlg, rtype="story", today=TODAY, now=studio.now, info=info, chat=chat,
+                    edl={"segs": [], "export": {"transfer": transfer}})
+        return g.gate_g9(ctx)[0]
+
+    assert g9("hlg")["ok"], g9("hlg")["detail"]
+    assert g9("auto")["ok"] and g9(None)["ok"]
+    bad = g9("sdr")
+    assert not bad["ok"] and "arib-std-b67 != EDL export.transfer sdr (bt709)" in bad["detail"]
 
 
 def test_burned_hook_and_wrong_caption_tail_fail_g10(studio):
@@ -298,7 +421,11 @@ def test_burned_hook_and_wrong_caption_tail_fail_g10(studio):
     assert "caption tail" in gate(rep2, "G10")["detail"]
     doc3 = _variant(studio, "one", hooks=[HOOKS[0]])
     rep3 = studio.run(studio.base_reel, edl=studio.write_edl(doc3, studio.post / "v_one.edl.json"))
-    assert "2 hooks" in gate(rep3, "G10")["detail"]
+    assert "1 hooks; every reel needs exactly 2 hooks" in gate(rep3, "G10")["detail"]
+    doc4 = _variant(studio, "three", hooks=HOOKS + ["A third hook that nobody asked for"])
+    rep4 = studio.run(studio.base_reel, edl=studio.write_edl(doc4, studio.post / "v_three.edl.json"))
+    g10 = gate(rep4, "G10")
+    assert not g10["ok"] and "3 hooks; every reel needs exactly 2 hooks" in g10["detail"] and hard_fails(rep4) == ["G10"]
 
 
 def test_colour_or_unknown_piece_fails_g12(studio):
@@ -354,6 +481,32 @@ def test_transcript_word_ending_after_out_fails_g6_and_counts_as_speech(studio):
             return [studio.gates.Word(4.6, 4.9, "late")] if Path(clip).name == CLIP_NAMES["I"] else []
     rep3 = studio.run(studio.base_reel, transcript=Provider())
     assert "'late' ends at 4.90" in gate(rep3, "G6")["detail"]
+
+
+def test_partial_transcript_falls_back_to_i_segs(studio):
+    # words.json covers only the Canon clip: the I segs are not silent, they are untranscribed
+    partial = studio.safeio.write_json(studio.config.CACHE / "words_partial.json",
+                                       {str(studio.clips["C"]): [[0.2, 0.9, "done"]]}, overwrite=True)
+    rep = studio.run(studio.base_reel, transcript=partial)
+    assert hard_fails(rep) == [], hard_fails(rep)
+    g3 = gate(rep, "G3")
+    assert g3["ok"] and g3["value"]["speech_source"] == "transcript (1 segs) + EDL I segs (5 without transcript)"
+    assert gate(rep, "G2")["value"]["speech_source"] == "EDL I seg (no transcript for clip)"
+    assert "last_word" not in gate(rep, "G6")["value"]["checked"][0]
+    # keyed by the path as written in the EDL; a bare name shared by two paths is ambiguous
+    tr = studio.gates.JsonTranscript({"F:/My Drive/Session 1 of 4/video-001.mp4": [[0.0, 0.4, "one"]],
+                                      "F:/My Drive/Session 2 of 4/video-001.mp4": [[0.0, 0.4, "two"]],
+                                      "F:/My Drive/Shop shorts/video-007.mp4": []})
+    assert [w.text for w in tr.words("F:\\My Drive\\Session 2 of 4\\video-001.mp4")] == ["two"]
+    assert [w.text for w in tr.words(Path("F:/My Drive/Session 1 of 4/video-001.mp4"))] == ["one"]
+    assert not tr.has("video-001.mp4") and tr.words("video-001.mp4") == []
+    assert tr.has("video-007.mp4") and tr.has("F:/My Drive/Shop shorts/video-007.mp4")
+    # a provider with no words at all for a clip counts as "no transcript" for that clip
+    class Silent:
+        def words(self, clip, start=None, end=None, vad=True):
+            return []
+    rep2 = studio.run(studio.base_reel, transcript=Silent())
+    assert gate(rep2, "G3")["ok"] and gate(rep2, "G3")["value"]["speech_source"] == "EDL I segs"
 
 
 def test_missing_stakes_fails_g2(studio):
@@ -459,18 +612,83 @@ def test_g11_shot_reuse_session_rest_pieces_per_day_and_phash(studio):
     finally:
         sio.rewrite_csv(deliveries, [], DELIV_H)
 
-    # frame-1 phash against a posted signature
-    pytest.importorskip("imagehash")
+    # frame-1 phash against the signature store: both sides hashed by tools.fingerprint
+    pytest.importorskip("PIL")
+    from tools import fingerprint as fp
     g = studio.gates
-    fs = g.measure_frames(g.proxy_path(studio.base_reel), FPS, g.cache_key(studio.base_reel))
-    mine = g.frame1_phash_hex(fs.frame1, fs.active)
-    sig = sio.write_json(cfg.DATA / "sig_self.json", {"DebCcJvqDI4": {"frame1": mine, "frames": []}}, overwrite=True)
-    rep4 = studio.run(studio.base_reel, signatures=sig)
+    mine = fp.frame1_phash(studio.base_reel)
+    assert len(mine) == 16
+    sig_doc = {"frames": [{"t": 0.0, "hashes": {"1.0": mine}}], "frame1": mine, "frame1_hashes": {"1.0": mine}}
+    store = cfg.DATA / "sig_self.json"
+    fp.add_signature("DebCcJvqDI4", "F:/My Drive/ClaudeInk Reels/POST/2026-10-12/A_1100_x.mp4", "posted",
+                     now=studio.now, path=store, sig=sig_doc)
+    fp.add_signature("d_today", str(studio.post / "B_1430_other.mp4"), "delivery", now=studio.now, path=store, sig=sig_doc)
+    rep4 = studio.run(studio.base_reel, signatures=store)
     g11 = gate(rep4, "G11")
     assert not g11["ok"] and "matches posted reel DebCcJvqDI4" in g11["detail"] and g11["value"]["phash_min_distance"] == 0
-    far = "f" * len(mine) if not mine.startswith("f") else "0" * len(mine)
-    sig2 = sio.write_json(cfg.DATA / "signatures2.json", [{"id": "x", "phash": far}], overwrite=True)
-    assert gate(studio.run(studio.base_reel, signatures=sig2), "G11")["ok"]
+    assert g11["value"]["signatures"] == 1 and g11["value"]["frame1_phash"] == mine
+    assert [x["id"] for x in rep4["gates"] if not x["hard"]] == ["G4", "G12"]
+    # only the delivery entry (deliver.py files every delivered reel this way): ignored
+    store2 = cfg.DATA / "sig_delivery.json"
+    fp.add_signature("d_today", str(studio.post / "B_1430_other.mp4"), "delivery", now=studio.now, path=store2, sig=sig_doc)
+    r = gate(studio.run(studio.base_reel, signatures=store2), "G11")
+    assert r["ok"] and r["value"]["signatures"] == 0 and "no posted frame-1 hashes" in r["detail"]
+    # a posted entry whose video is this very reel is skipped
+    store3 = cfg.DATA / "sig_me.json"
+    fp.add_signature("me", str(studio.base_reel), "posted", now=studio.now, path=store3, sig=sig_doc)
+    r = gate(studio.run(studio.base_reel, signatures=store3), "G11")
+    assert r["ok"] and r["value"]["signatures_of_this_reel_skipped"] == 1 and "phash_min_distance" not in r["value"]
+    # a far hash in a loose shape (not a store) is still compared through the tolerant walk
+    far = "f" * 16 if not mine.startswith("f") else "0" * 16
+    sig2 = sio.write_json(cfg.DATA / "signatures2.json", [{"id": "x", "phash": far}, {"id": "y", "kind": "delivery", "phash": mine}],
+                          overwrite=True)
+    r = gate(studio.run(studio.base_reel, signatures=sig2), "G11")
+    assert r["ok"] and r["value"]["phash_nearest"] == "x" and r["value"]["phash_min_distance"] >= 20
+    # the nearest id is the parent key, never the structural child key
+    pairs = []
+    g._hex_hashes({"signatures": {"KEY1": {"kind": "posted", "sig": {"frame1": mine, "frames": []}},
+                                  "KEY2": {"kind": "delivery", "sig": {"frame1": mine}}}}, pairs)
+    assert pairs == [("KEY1", mine)]
+    assert g.phash_distance("ff00", "0f00") == 4 and g.phash_distance("ff00", "ff000") is None and g.phash_distance("zz", "ff") is None
+
+
+def test_g11_without_fingerprint_adds_a_soft_warning(studio, monkeypatch):
+    import sys
+    store = studio.config.DATA / "sig_self.json"
+    assert store.is_file()
+    import tools
+    monkeypatch.setitem(sys.modules, "tools.fingerprint", None)       # import now raises ImportError ...
+    monkeypatch.delattr(tools, "fingerprint", raising=False)          # ... once the package attribute is gone too
+    rep = studio.run(studio.base_reel, signatures=store)
+    g11 = gate(rep, "G11")
+    assert g11["ok"], g11["detail"]
+    assert "phash_min_distance" not in g11["value"]      # nothing compared, nothing invented
+    soft = gate(rep, "G11", hard=False)
+    assert not soft["ok"] and soft["detail"].startswith("needs critic: frame-1 phash not compared")
+    assert "tools.fingerprint unavailable" in soft["detail"] and "pip install" in soft["detail"]
+    assert [x["id"] for x in rep["gates"] if not x["hard"]] == ["G4", "G11", "G12"]
+    assert rep["pass"] is True
+
+
+def test_voice_tail_rms_fails_closed_on_short_audio_and_resolve_clip_prefers_staged(studio):
+    g, cfg = studio.gates, studio.config
+    out = cfg.CACHE / "gates" / "short.f32"
+    with pytest.raises(g.GatesError, match="audio shorter than the seg"):
+        g.voice_tail_rms(studio.clips["M18"], 0.0, 3.0, out)                 # the clip is 1.8 s long
+    tail, speech = g.voice_tail_rms(studio.clips["M18"], 0.0, 1.8, out)
+    assert speech > 0.0
+    # encode.py stages Drive clips into cache/clips/<key>_<name>; gates read that copy first
+    encode = pytest.importorskip("tools.encode")
+    src = studio.clips["I"]
+    staged = encode.stage_clip(src)
+    assert staged.parent == cfg.CACHE / "clips" and staged.name.endswith("_" + src.name)
+    assert g.staged_clip_path(src) == staged
+    assert g.resolve_clip(str(src), studio.base_edl) == staged
+    assert g.resolve_clip("F:/My Drive/Session 9/" + src.name, studio.base_edl) == staged   # single name hit
+    assert g.resolve_clip(str(studio.clips["M29"]), studio.base_edl) == studio.clips["M29"]  # not staged: exact path
+    assert g.resolve_clip("F:/nowhere/video-999.mp4", studio.base_edl) is None
+    rep = studio.run(studio.base_reel)
+    assert all(c["audio_source"] == "clip" for c in gate(rep, "G6")["value"]["checked"]) and gate(rep, "G6")["ok"]
 
 
 # --------------------------------------------------------------------------- HLG proxy, calibration, CLI

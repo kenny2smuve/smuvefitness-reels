@@ -11,8 +11,10 @@ How the picture is measured: one 8-bit 360x640 proxy of the reel is built in ``c
 (HLG sources go through the hable tonemap chain, SDR sources only through ``format=yuv420p``;
 ``proxy_chain(is_hlg)`` exposes that chain so ``calibrate`` runs his winners through the same
 pipeline). Everything else (frame-1 luma std, motion, face, black/freeze detection, scene
-changes, frame-1 phash) is read from that proxy. Letterbox bars are stripped first: the
-active picture area is the rows whose mean luma over the first 10 proxy frames is above 16.
+changes) is read from that proxy. Letterbox bars are stripped first: the active picture area
+is the rows whose mean luma over the first 10 proxy frames is above 16. The G11 frame-1 phash
+is tools.fingerprint.frame1_phash on the master, the same function that filled the store, so
+both sides of the comparison are the same bits.
 
 ``py -m tools.gates calibrate <winner videos...>`` writes ``data/calibration.json`` with the
 motion threshold (0.6 x the least-moving winner) that ``--calibration`` then uses for G1/G2.
@@ -56,6 +58,8 @@ TYPES = ("story", "broll", "th")
 SUBJECT_TAGS = frozenset({"greeting", "design", "stencil", "healed", "piece", "station", "face"})
 STAKES_TAGS = frozenset({"stakes", "hours", "travel", "first-tattoo", "return", "pain", "healed"})
 ALLOWED_TRANSFERS = ("arib-std-b67", "bt709")
+# edl.py / render_story.py record the export policy word; ffprobe reports the stream tag
+TRANSFER_WORDS = {"hlg": "arib-std-b67", "sdr": "bt709"}
 GATES: tuple[tuple[str, str], ...] = (
     ("G1", "frame1"), ("G2", "opening"), ("G3", "window3_10"), ("G4", "story_content"),
     ("G5", "clean_picture"), ("G6", "voices"), ("G7", "order_and_sound"), ("G8", "length"),
@@ -66,7 +70,11 @@ GATE_NAMES = dict(GATES)
 DELIVERY_NOT_COUNTED = ("held", "legacy", "dryrun", "cancelled")
 NUMPY_HINT = "numpy is required: pip install --user numpy"
 CV2_HINT = "pip install --user opencv-python"
-IMAGEHASH_HINT = "pip install --user imagehash pillow"
+FINGERPRINT_HINT = "tools.fingerprint needs pillow and numpy: pip install --user pillow numpy"
+HEX_RE = re.compile(r"[0-9a-fA-F]{8,64}")
+# keys of a signatures file that group entries rather than name one (the parent key is the id)
+STRUCTURAL_KEYS = frozenset({"sig", "signature", "signatures", "frame1_hashes", "hashes", "frames",
+                             "posted", "delivery", "entries", "items", "reels"})
 
 
 class GatesError(RuntimeError):
@@ -91,16 +99,35 @@ class Word:
 
 
 class JsonTranscript:
-    """Transcript provider built from ``words.json``: ``{clip_name: [[start, end, text], ...]}``
+    """Transcript provider built from ``words.json``: ``{clip: [[start, end, text], ...]}``
     (clip seconds). Duck-types tools.transcribe / tools.tests.stub_transcript: ``words(clip,
-    start, end, vad)`` returns the words overlapping [start, end]."""
+    start, end, vad)`` returns the words overlapping [start, end]; ``has(clip)`` says whether
+    the clip was transcribed at all.
+
+    Clips are looked up by the path as written in the EDL first and by bare file name only as
+    a fallback: Meta glasses exports are ``video-001.mp4`` in every session folder, so a bare
+    name shared by two transcribed paths is ambiguous and ``has()`` answers False for it."""
 
     def __init__(self, words_by_clip: dict):
-        self.data: dict[str, list[Word]] = {}
+        self.by_path: dict[str, list[Word]] = {}
+        self.by_name: dict[str, list[Word] | None] = {}      # None = ambiguous bare name
         for k, v in (words_by_clip or {}).items():
             if isinstance(v, dict):
                 v = v.get("words") or []
-            self.data[Path(str(k)).name] = [self._word(w) for w in (v or [])]
+            ws = [self._word(w) for w in (v or [])]
+            self.by_path[self._path_key(k)] = ws
+            name = Path(str(k)).name
+            self.by_name[name] = None if name in self.by_name else ws
+
+    @staticmethod
+    def _path_key(p) -> str:
+        return str(p).replace("\\", "/").strip().lower()
+
+    def _lookup(self, clip) -> list[Word] | None:
+        ws = self.by_path.get(self._path_key(clip))
+        if ws is not None:
+            return ws
+        return self.by_name.get(Path(str(clip)).name)
 
     @staticmethod
     def _word(w) -> Word:
@@ -121,11 +148,11 @@ class JsonTranscript:
         return cls(obj)
 
     def has(self, clip: Path | str) -> bool:
-        return Path(str(clip)).name in self.data
+        return self._lookup(clip) is not None
 
     def words(self, clip: Path | str, start: float | None = None, end: float | None = None,
               vad: bool = True) -> list[Word]:
-        ws = self.data.get(Path(str(clip)).name, [])
+        ws = self._lookup(clip) or []
         lo = -1e9 if start is None else start
         hi = 1e9 if end is None else end
         return [w for w in ws if w.end >= lo and w.start <= hi]
@@ -466,10 +493,14 @@ def voice_tail_rms(src: Path | str, a: float, b: float, out: Path | str, *,
     x = audio_window(p, a, b + 0.05, out)
     sr = 16000
     n_seg = int(round((b - a) * sr))
+    tail_n = int(TAIL_WINDOW_S * sr)
+    if x.size < n_seg - tail_n:
+        # fail closed: an out-point past the end of the clip's audio would read as "a pause"
+        raise GatesError(f"audio shorter than the seg: {x.size / sr:.2f}s decoded for "
+                         f"{a:.2f}-{b:.2f}s of {p.name}")
     seg_audio = x[:n_seg]
     third = max(1, n_seg // 3)
     speech_rms = rms(seg_audio[third: 2 * third])
-    tail_n = int(TAIL_WINDOW_S * sr)
     tail_rms = rms(seg_audio[max(0, n_seg - tail_n): n_seg])
     if cache is not None:
         cache.set("audio", [tail_rms, speech_rms], key)
@@ -560,16 +591,49 @@ def order_key_sortable(key) -> tuple:
     return (0, dt.timestamp())
 
 
+def staged_clip_path(src: Path | str) -> Path | None:
+    """Where tools.encode.stage_clip puts a footage clip: cache/clips/<sha1(name|size|mtime)[:12]>_<name>
+    (the same key, read from encode when it exposes a helper). None when the source cannot be stat'ed."""
+    s = Path(str(src))
+    try:
+        from . import encode  # noqa: WPS433 (another builder's module)
+        for name in ("staged_path", "stage_path", "staged_clip_path"):
+            fn = getattr(encode, name, None)
+            if callable(fn):
+                return Path(fn(s))
+    except ImportError:
+        pass
+    try:
+        st = s.stat()
+    except OSError:
+        return None
+    key = hashlib.sha1(f"{s.name}|{st.st_size}|{int(st.st_mtime)}".encode("utf-8")).hexdigest()[:12]
+    return config.CACHE / "clips" / f"{key}_{s.name}"
+
+
 def resolve_clip(clip: str | None, edl_path: Path | None) -> Path | None:
-    """The source clip on this machine: the EDL path as given, else the same file name next
-    to the EDL, else in cache/clips/. None when nothing exists (gates then use the reel)."""
+    """The source clip on this machine, local copies first so Drive never streams during a
+    gate run: the copy encode.py staged in cache/clips/ (by its name+size+mtime key, else the
+    single cache/clips/*_<name> hit), then the exact EDL path, then the same file name next to
+    the EDL, then a bare cache/clips/<name>. None when nothing exists (gates then use the reel)."""
     if not clip:
         return None
     p = Path(str(clip))
-    cands = [p]
+    clips_dir = config.CACHE / "clips"
+    cands: list[Path] = []
+    staged = staged_clip_path(p)
+    if staged is not None:
+        cands.append(staged)
+    try:
+        hits = sorted(clips_dir.glob(f"*_{p.name}")) if clips_dir.is_dir() else []
+    except OSError:
+        hits = []
+    if len(hits) == 1:
+        cands.append(hits[0])
+    cands.append(p)
     if edl_path is not None:
         cands.append(edl_path.parent / p.name)
-    cands.append(config.CACHE / "clips" / p.name)
+    cands.append(clips_dir / p.name)
     for c in cands:
         try:
             if c.is_file():
@@ -648,18 +712,27 @@ class Ctx:
     def first_tags(self) -> set[str]:
         return seg_tags(self.tl[0][2]) if self.tl else set()
 
-    def words_for_seg(self, seg: dict) -> list[Word]:
-        """Transcript words of a seg's clip around [in, out] (clip seconds), or []."""
+    def words_for_seg(self, seg: dict) -> list[Word] | None:
+        """Transcript words of a seg's clip around [in, out] (clip seconds). None when there is
+        no transcript at all, none for this clip (a partial words.json during the fix loop) or
+        the provider has no words for the clip at all: callers then fall back to the EDL
+        I-seg rule instead of treating the seg as silent."""
         if self.transcript is None:
-            return []
+            return None
         clip = seg.get("clip")
         if not clip:
-            return []
+            return None
+        has = getattr(self.transcript, "has", None)
         try:
-            return list(self.transcript.words(Path(str(clip)), seg_in(seg) - WORD_WINDOW_BEFORE_S,
-                                              seg_out(seg) + WORD_WINDOW_AFTER_S, vad=False))
+            if callable(has) and not has(clip):
+                return None
+            ws = list(self.transcript.words(Path(str(clip)), seg_in(seg) - WORD_WINDOW_BEFORE_S,
+                                            seg_out(seg) + WORD_WINDOW_AFTER_S, vad=False))
+            if not ws and not list(self.transcript.words(Path(str(clip)), None, None, vad=False)):
+                return None
+            return ws
         except Exception:
-            return []
+            return None
 
     def reel_words(self) -> list[Word]:
         """Words keyed by the reel's own file name (timeline seconds), when the transcript has them."""
@@ -693,7 +766,7 @@ def gate_g1(ctx: Ctx) -> list[dict]:
         else:
             reasons.append(f"no face detected and first seg tags {sorted(first)} name no subject")
     value = {"luma_std": round(fs.luma_std, 2), "motion": round(mot, 3), "face": fs.face,
-             "first_seg_tags": sorted(first), "active_rows": list(fs.active),
+             "first_seg_tags": sorted(first), "active_rows": list(fs.active), "active_luma_min": ACTIVE_LUMA_MIN,
              "motion_threshold": thr["motion"], "luma_std_min": thr["luma_std"]}
     if reasons:
         detail = "; ".join(reasons)
@@ -729,13 +802,14 @@ def gate_g2(ctx: Ctx) -> list[dict]:
     speech_src = "none"
     if ctx.tl:
         t0, _t1, seg = ctx.tl[0]
-        if ctx.transcript is not None:
-            ws = ctx.words_for_seg(seg)
+        ws = ctx.words_for_seg(seg)
+        if ws is not None:
             starts = [max(0.0, w.start - seg_in(seg)) for w in ws if w.end > seg_in(seg)]
             if starts:
                 speech_t, speech_src = min(starts), "transcript"
         elif seg_kind(seg) == "I":
-            speech_t, speech_src = 0.0, "EDL I seg"
+            speech_t = 0.0
+            speech_src = "EDL I seg" if ctx.transcript is None else "EDL I seg (no transcript for clip)"
     rw = ctx.reel_words() if speech_t is None else []
     if rw:
         speech_t, speech_src = max(0.0, min(w.start for w in rw)), "transcript (reel)"
@@ -855,25 +929,37 @@ def gate_g3(ctx: Ctx) -> list[dict]:
     # story / th: no stretch over MAX_DEAD_STRETCH_S with neither speech nor a cut in [3, 10]
     w0 = float(config.RETENTION_WINDOW[0])
     speech: list[tuple[float, float]] = []
+    speech_src = "none"
     if ctx.tl:
         cuts = [t0 for t0, _t1, _seg in ctx.tl[1:]]
         final_hold = ctx.tl[-1][1] - ctx.tl[-1][0]
         src = "EDL"
+        n_transcript = n_fallback = 0
         for t0, t1, seg in ctx.tl:
-            if ctx.transcript is not None:
-                for w in ctx.words_for_seg(seg):
+            ws = ctx.words_for_seg(seg)
+            if ws is not None:
+                n_transcript += 1
+                for w in ws:
                     a = t0 + (w.start - seg_in(seg))
                     b = t0 + (w.end - seg_in(seg))
                     a, b = max(t0, a), min(t1, b)
                     if b > a:
                         speech.append((a, b))
             elif seg_kind(seg) == "I":
+                n_fallback += 1
                 speech.append((t0, t1))
+        if n_transcript and n_fallback:
+            speech_src = f"transcript ({n_transcript} segs) + EDL I segs ({n_fallback} without transcript)"
+        elif n_transcript:
+            speech_src = "transcript"
+        elif n_fallback:
+            speech_src = "EDL I segs"
     elif ctx.analysis is not None:
         cuts = list(ctx.analysis["scenes"])
         final_hold = float(config.FINISHED_HOLD_MIN_S)
         src = "scdet"
         speech = [(w.start, w.end) for w in ctx.reel_words()]
+        speech_src = "transcript (reel)" if speech else "none"
     else:
         return [_gate("G3", False, {}, f"no cut data: {ctx.measure_error or ctx.probe_error}")]
     w1 = min(float(config.RETENTION_WINDOW[1]), dur - final_hold)
@@ -881,7 +967,7 @@ def gate_g3(ctx: Ctx) -> list[dict]:
     worst = max(gaps, key=lambda g: g[2]) if gaps else None
     bad = [g for g in gaps if g[2] > config.MAX_DEAD_STRETCH_S + 1e-6]
     value = {"window": [round(w0, 2), round(w1, 2)], "cuts_in_window": [round(c, 2) for c in cuts if w0 <= c <= w1],
-             "speech_intervals": len(speech), "source": src,
+             "speech_intervals": len(speech), "speech_source": speech_src, "source": src,
              "longest_dead": None if worst is None else [round(worst[0], 2), round(worst[1], 2), round(worst[2], 2)]}
     if bad:
         g = max(bad, key=lambda x: x[2])
@@ -934,9 +1020,13 @@ def gate_g5(ctx: Ctx) -> list[dict]:
     last_t0 = ctx.tl[-1][0] if ctx.tl else None
     bad_freezes = []
     for s, e in ctx.analysis["freezes"]:
-        in_last_seg = last_t0 is not None and s >= last_t0 - 0.1
-        runs_to_end = e >= dur - 0.25
-        if not (in_last_seg or runs_to_end):
+        if last_t0 is not None:
+            # with an EDL only the final hold may freeze (START_HERE G5): the freeze must start
+            # inside the last seg, not two seconds before it and run into it
+            allowed = s >= last_t0 - 0.1
+        else:
+            allowed = e >= dur - 0.25            # no EDL: a freeze that runs to the end is the hold
+        if not allowed:
             bad_freezes.append((s, e))
     reasons = []
     if black:
@@ -966,7 +1056,7 @@ def gate_g6(ctx: Ctx) -> list[dict]:
         s_in, s_out = seg_in(seg), seg_out(seg)
         entry: dict[str, Any] = {"seg": i, "out": round(s_out, 3)}
         # (a) transcript: the last word that starts before the out-point must end before it
-        ws = ctx.words_for_seg(seg)
+        ws = ctx.words_for_seg(seg) or []
         if ws:
             before = [w for w in ws if w.start < s_out]
             if before:
@@ -1076,9 +1166,11 @@ def gate_g9(ctx: Ctx) -> list[dict]:
     trc = info["color_transfer"]
     if trc not in ALLOWED_TRANSFERS:
         reasons.append(f"color_transfer {trc or 'untagged'} not in {list(ALLOWED_TRANSFERS)}")
-    want_trc = ((ctx.edl or {}).get("export") or {}).get("transfer") if ctx.edl else None
-    if want_trc and trc != want_trc:
-        reasons.append(f"color_transfer {trc or 'untagged'} != EDL export.transfer {want_trc}")
+    # edl.py writes export.transfer as hlg|sdr (auto = not decided yet); map it to the ffprobe tag
+    want_word = str(((ctx.edl or {}).get("export") or {}).get("transfer") or "").strip().lower() if ctx.edl else ""
+    want_trc = TRANSFER_WORDS.get(want_word, want_word)
+    if want_word and want_word != "auto" and trc != want_trc:
+        reasons.append(f"color_transfer {trc or 'untagged'} != EDL export.transfer {want_word} ({want_trc})")
     if not info["has_audio"]:
         reasons.append("no audio stream")
     chat = ctx.chat
@@ -1119,8 +1211,8 @@ def gate_g10(ctx: Ctx) -> list[dict]:
     caption = ctx.edl.get("caption")
     reasons = []
     pair = None
-    if len(hooks) < 2:
-        reasons.append(f"{len(hooks)} hook(s); every reel needs 2 hooks given separately")
+    if len(hooks) != 2:
+        reasons.append(f"{len(hooks)} hooks; every reel needs exactly 2 hooks given separately")
     else:
         burned = hook_gate.burned_hooks()
         captions = hook_gate.used_captions()
@@ -1140,74 +1232,106 @@ def gate_g10(ctx: Ctx) -> list[dict]:
 
 # --------------------------------------------------------------------------- G11 uniqueness
 def _hex_hashes(obj, out: list[tuple[str, str]], ident: str = "") -> None:
-    """Collect (id, hex) frame-1 hashes from a signatures file of unknown exact shape."""
+    """Collect (id, hex) frame-1 hashes from a signatures file of unknown exact shape (the
+    fallback when the file is not a tools.fingerprint store). An entry that names a ``kind``
+    other than posted is skipped with its subtree; a child dict without an id of its own
+    inherits the parent key (``{"DebCc": {"sig": {"frame1": ...}}}`` -> id DebCc, not sig)."""
     keys = ("frame1", "frame1_phash", "phash_frame1", "phash", "frame_1")
     if isinstance(obj, dict):
-        my_id = str(obj.get("id") or obj.get("shortcode") or obj.get("reel") or ident)
+        kind = obj.get("kind")
+        if isinstance(kind, str) and kind.strip().lower() != "posted":
+            return
+        own = obj.get("id") or obj.get("shortcode") or obj.get("reel") or obj.get("key")
+        my_id = str(own) if own else ident
         for k in keys:
             v = obj.get(k)
-            if isinstance(v, str) and re.fullmatch(r"[0-9a-fA-F]{8,64}", v):
+            if isinstance(v, str) and HEX_RE.fullmatch(v):
                 out.append((my_id, v))
                 break
             if isinstance(v, dict):
                 for kk in ("frame1", "hash", "phash"):
                     vv = v.get(kk)
-                    if isinstance(vv, str) and re.fullmatch(r"[0-9a-fA-F]{8,64}", vv):
+                    if isinstance(vv, str) and HEX_RE.fullmatch(vv):
                         out.append((my_id, vv))
                         break
         for k, v in obj.items():
             if isinstance(v, (dict, list)):
-                _hex_hashes(v, out, str(k))
+                child = my_id if (own or str(k) in STRUCTURAL_KEYS) else str(k)
+                _hex_hashes(v, out, child)
     elif isinstance(obj, list):
         for i, v in enumerate(obj):
-            _hex_hashes(v, out, f"{ident}[{i}]")
-
-
-def frame1_phash_hex(frame, active: tuple[int, int]) -> str:
-    """phash of the frame-1 luma with the text bands masked (cropped away) inside the active area."""
-    try:
-        import imagehash  # noqa: WPS433
-        from PIL import Image  # noqa: WPS433
-    except ImportError as e:
-        raise ImportError(f"imagehash/pillow are required for G11: {IMAGEHASH_HINT}") from e
-    y0, y1 = active
-    h = y1 - y0
-    a = y0 + int(h * config.TEXT_BAND_TOP)
-    b = y1 - int(h * config.TEXT_BAND_BOTTOM)
-    if b - a < 8:
-        a, b = y0, y1
-    return str(imagehash.phash(Image.fromarray(frame[a:b])))
+            _hex_hashes(v, out, f"{ident}[{i}]" if ident else f"[{i}]")
 
 
 def phash_distance(a_hex: str, b_hex: str) -> int | None:
+    """Hamming distance between two hex hashes of the same length (pure Python, like
+    tools.fingerprint.hamming); None when the two are not comparable."""
     try:
-        import imagehash  # noqa: WPS433
-    except ImportError:
-        return None
-    try:
-        ha, hb = imagehash.hex_to_hash(a_hex), imagehash.hex_to_hash(b_hex)
+        a, b = str(a_hex).strip().lower(), str(b_hex).strip().lower()
+        if not a or len(a) != len(b):
+            return None
+        return bin(int(a, 16) ^ int(b, 16)).count("1")
     except (ValueError, TypeError):
         return None
-    if ha.hash.shape != hb.hash.shape:
-        return None
-    return int(ha - hb)
 
 
-def _fingerprint_frame1(reel: Path) -> str | None:
-    """tools.fingerprint's own frame-1 hash when that module offers one (lazy, best effort)."""
+def _fingerprint_module():
+    """tools.fingerprint (lazy; needs pillow + numpy) or None when it cannot be imported."""
     try:
         from . import fingerprint  # noqa: WPS433 (another builder's module)
     except ImportError:
         return None
-    for name in ("frame1_phash", "phash_frame1", "frame1_hash"):
-        fn = getattr(fingerprint, name, None)
-        if callable(fn):
-            try:
-                v = fn(reel)
-            except Exception:
-                return None
-            return str(v) if v else None
-    return None
+    return fingerprint
+
+
+def posted_signatures(path: Path | str, fp=None) -> list[tuple[str, list[str], str]]:
+    """[(key, frame-1 hex hashes (every crop scale), video)] of the kind=posted entries of a
+    signatures file. A tools.fingerprint store is read through fingerprint.load_store /
+    entries_of_kind; any other shape falls back to the tolerant _hex_hashes walk. Deliveries
+    (kind delivery) never count: a reel re-gated after deliver.py filed it must not match itself."""
+    p = Path(path)
+    if not p.is_file():
+        return []
+    store = None
+    if fp is not None:
+        try:
+            store = fp.load_store(p)
+        except (ValueError, OSError):
+            store = None
+    out: list[tuple[str, list[str], str]] = []
+    if store is not None:
+        entries = (fp.entries_of_kind(store, ("posted",)) if hasattr(fp, "entries_of_kind") else
+                   {k: v for k, v in store.get("signatures", {}).items()
+                    if isinstance(v, dict) and v.get("kind") == "posted"})
+        for key, entry in entries.items():
+            if not isinstance(entry, dict):
+                continue
+            sig = entry.get("sig") if isinstance(entry.get("sig"), dict) else entry
+            hashes: list[str] = []
+            f1h = sig.get("frame1_hashes")
+            if isinstance(f1h, dict):
+                hashes += [str(v) for v in f1h.values() if isinstance(v, str)]
+            if isinstance(sig.get("frame1"), str):
+                hashes.append(sig["frame1"])
+            hashes = list(dict.fromkeys(h.lower() for h in hashes if HEX_RE.fullmatch(h)))
+            if hashes:
+                out.append((str(key), hashes, str(entry.get("video") or "")))
+        return out
+    pairs: list[tuple[str, str]] = []
+    _hex_hashes(safeio.read_json(p, default=None), pairs)
+    return [(k, [h.lower()], "") for k, h in pairs]
+
+
+def _same_file(a: Path | str | None, b: Path) -> bool:
+    if not a:
+        return False
+    pa = Path(str(a))
+    try:
+        if pa.is_file() and pa.resolve() == b.resolve():
+            return True
+    except OSError:
+        pass
+    return pa.name == b.name
 
 
 def delivery_edl_path(row: dict) -> Path | None:
@@ -1279,33 +1403,51 @@ def gate_g11(ctx: Ctx) -> list[dict]:
     notes: list[str] = []
     value: dict[str, Any] = {}
 
-    # (a) frame-1 phash against posted signatures
+    # (a) frame-1 phash against posted signatures: one hashing method on both sides
+    # (tools.fingerprint.frame1_phash, the same function deliver.py and the store use). When
+    # fingerprint cannot run, nothing is compared and a hard=false entry says so (soft warn).
+    soft: dict | None = None
     sig_path = ctx.signatures or (config.DATA / "signatures.json")
-    sigs: list[tuple[str, str]] = []
-    if sig_path.is_file():
-        _hex_hashes(safeio.read_json(sig_path, default=None), sigs)
+    fp = _fingerprint_module()
+    sigs = posted_signatures(sig_path, fp)
     value["signatures"] = len(sigs)
-    if not sigs:
-        notes.append("no posted signatures to compare" if not sig_path.is_file() else "signatures file holds no frame-1 hashes")
-    elif ctx.frames is None:
-        reasons.append("frame-1 hash unavailable (no proxy)")
+    if fp is None:
+        soft = _gate("G11", False, {"needs_critic": True, "phash": "not compared"},
+                     f"needs critic: frame-1 phash not compared (tools.fingerprint unavailable: {FINGERPRINT_HINT})",
+                     hard=False)
+    elif not sigs:
+        notes.append("no posted signatures to compare" if not sig_path.is_file()
+                     else "signatures file holds no posted frame-1 hashes")
     else:
-        mine = _fingerprint_frame1(ctx.reel)
         try:
-            mine = mine or frame1_phash_hex(ctx.frames.frame1, ctx.frames.active)
-        except ImportError as e:
-            mine = None
-            notes.append(f"soft warn: {e}")
+            mine = str(fp.frame1_phash(ctx.reel) or "")
+        except Exception as e:  # ffmpeg/PIL failure on the master: say so, never guess
+            mine = ""
+            soft = _gate("G11", False, {"needs_critic": True, "phash": "not compared"},
+                         f"needs critic: frame-1 phash not compared ({type(e).__name__}: {e})", hard=False)
         if mine:
-            dists = [(d, sid) for sid, hx in sigs if (d := phash_distance(mine, hx)) is not None]
-            if dists:
-                dmin, who = min(dists)
+            value["frame1_phash"] = mine
+            best: tuple[int, str] | None = None
+            skipped_self = 0
+            for key, hashes, video in sigs:
+                if _same_file(video, ctx.reel):
+                    skipped_self += 1
+                    continue
+                ds = [d for h in hashes if (d := phash_distance(mine, h)) is not None]
+                if ds and (best is None or min(ds) < best[0]):
+                    best = (min(ds), key)
+            if skipped_self:
+                value["signatures_of_this_reel_skipped"] = skipped_self
+            if best is not None:
+                dmin, who = best
                 value["phash_min_distance"] = dmin
                 value["phash_nearest"] = who
                 if dmin <= config.PHASH_MATCH_MAX:
                     reasons.append(f"frame 1 matches posted reel {who} (phash distance {dmin} <= {config.PHASH_MATCH_MAX})")
-            else:
-                notes.append("soft warn: signatures not comparable to the frame-1 phash")
+            elif len(sigs) > skipped_self:
+                soft = _gate("G11", False, {"needs_critic": True, "phash": "not compared"},
+                             "needs critic: frame-1 phash not compared (posted signatures are not 64-bit hex hashes)",
+                             hard=False)
 
     # (b) shot reuse vs the last SHOT_REUSE_WINDOW_DAYS of posted deliveries (story/th)
     rows = safeio.read_csv(config.LEDGERS / "deliveries.csv")
@@ -1379,7 +1521,10 @@ def gate_g11(ctx: Ctx) -> list[dict]:
     detail = "; ".join(reasons) if reasons else "frame 1 unique, shots fresh, session rested, pieces within the daily cap"
     if notes:
         detail += " (" + "; ".join(notes) + ")"
-    return [_gate("G11", not reasons, value, detail)]
+    out = [_gate("G11", not reasons, value, detail)]
+    if soft is not None:
+        out.append(soft)
+    return out
 
 
 # --------------------------------------------------------------------------- G12 pieces and visual
@@ -1635,6 +1780,14 @@ def _main_calibrate(argv: Sequence[str]) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    # gate details quote hook text and captions (emoji included); a cp1252 console must not
+    # raise UnicodeEncodeError after the report was already written
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "calibrate":
         return _main_calibrate(argv[1:])

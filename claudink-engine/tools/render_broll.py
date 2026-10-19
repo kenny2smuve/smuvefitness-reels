@@ -9,15 +9,21 @@ config.BROLL_TOL.
 Picture: SDR 1440x2560 bt709. iPhone/Meta HLG shots go through the exact tonemap chain from
 the skill (zscale linear npl=100 -> hable -> bt709, then eq=gamma=1.12:contrast=1.04:
 saturation=1.05) followed by hqdn3d=1.5:1.5:6:6,unsharp=5:5:0.5. Canon shots are untouched
-except scale/pad (ffmpeg autorotate, NO transpose; scale=in_range=full:out_range=limited only
-when ffprobe reports color_range=pc). Scale to width 1440 keeping aspect, never upscale, pad to
-1440x2560, setsar=1, fps=30. Sound: a silent AAC track (anullsrc) so the file always has audio.
-HEVC 8-bit master (hevc_nvenc when the profile has it, else libx265) + chat copy as in
-render_story. Sidecars: <stem>.edl.json (type broll, tags station/piece, piece names) and
-<stem>.render.json.
+except scale/pad (ffmpeg autorotate, NO transpose) and the range: scale=in_range=full:
+out_range=limited when ffprobe reports color_range=pc, and ASSUMED for an MVI_ file whose stream
+carries no range tag (skill 6 applied it to every Canon MVI on Oct 9; recorded per slot as
+"range_assumed": "full (canon)"; render_story.range_filter is the one implementation). Scale to
+width 1440 keeping aspect, never upscale, pad to 1440x2560, setsar=1, fps=30. Sound: a silent AAC
+track (anullsrc) so the file always has audio. HEVC 8-bit master (hevc_nvenc when the profile has
+it, else libx265) + chat copy as in render_story. Sidecars: <stem>.edl.json (type broll, tags
+station/piece, piece names, export.template_placeholder) and <stem>.render.json.
+
+PLACEHOLDER guard: while the template still carries its "PLACEHOLDER" key (stand-in timings), a
+render into config.POST or config.HOLD is refused unless allow_placeholder / --allow-placeholder
+is given; cache/ previews stay allowed, and the flag is kept in the sidecar so gates can block too.
 
 CLI: py -m tools.render_broll shots.json [--template templates/broll_station_first.json]
-     --out post/2026-10-19/B_1430_name.mp4 [--json]
+     --out post/2026-10-19/B_1430_name.mp4 [--allow-placeholder] [--json]
 shots.json: a list of {clip, in, role, piece?, order_key?, note?} or
 {"name": ..., "shots": [...], "hooks": [h1, h2], "caption": ...}.
 """
@@ -25,17 +31,18 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
 from . import config, edl as edlmod, safeio
+from .render_story import FULL_TO_LIMITED, range_filter
 
 TEMPLATE_NAME = "broll_station_first.json"
 ROLES = ("station", "piece")
 HLG_LOOK = "eq=gamma=1.12:contrast=1.04:saturation=1.05"
 POST_FILTERS = "hqdn3d=1.5:1.5:6:6,unsharp=5:5:0.5"
-FULL_TO_LIMITED = "scale=in_range=full:out_range=limited"
 
 
 def _encode():
@@ -148,13 +155,25 @@ def assign_slots(shots: list[dict], template: dict) -> list[dict]:
     return plan
 
 
-def shot_filters(info: dict) -> str:
-    """Extra video filters for one shot (applied by encode.video_chain after its scale/tonemap)."""
+def shot_filters(info: dict, clip: Path | str = "") -> str:
+    """Extra video filters for one shot (applied by encode.video_chain after its scale/tonemap):
+    the approved look + denoise/sharpen for HLG shots; the full->limited range conversion for a
+    Canon shot that is tagged pc or is an untagged MVI_ file (render_story.range_filter)."""
     if info.get("is_hlg"):
         return f"{HLG_LOOK},{POST_FILTERS}"
-    if str(info.get("range") or "").lower() in ("pc", "full", "jpeg"):
-        return FULL_TO_LIMITED
-    return ""
+    return range_filter(info, clip)[0]
+
+
+def shot_range_note(info: dict, clip: Path | str = "") -> str:
+    """"full (tagged pc)" | "full (canon)" | "" : why a range conversion was applied."""
+    return range_filter(info, clip)[1]
+
+
+def placeholder_blocked(template: dict, out: Path | str) -> bool:
+    """True when the template is still a stand-in and `out` is a delivery path (post/ or hold/)."""
+    if not template_has_placeholder(template):
+        return False
+    return safeio.is_under(out, config.POST) or safeio.is_under(out, config.HOLD)
 
 
 def build_edl(plan: list[dict], template: dict, name: str, meta: dict | None = None) -> edlmod.EDL:
@@ -187,9 +206,11 @@ def build_edl(plan: list[dict], template: dict, name: str, meta: dict | None = N
 # --------------------------------------------------------------------------- render
 def render(shots, template, out: Path | str, *, now: datetime | None = None, profile=None,
            encoder: str | None = None, stage: bool = True, workers: int | None = None,
-           name: str | None = None) -> dict:
+           name: str | None = None, allow_placeholder: bool = False) -> dict:
     """Render the b-roll short. shots: list/dict (see module doc) or a path to shots.json;
-    template: dict or path (default templates/broll_station_first.json). Returns a result dict."""
+    template: dict or path (default templates/broll_station_first.json). Returns a result dict.
+    allow_placeholder: render into post/ or hold/ although the template still has PLACEHOLDER
+    timings (otherwise ValueError; cache/ outputs are always allowed)."""
     encode = _encode()
     from . import render_story
     t_wall = time.time()
@@ -207,6 +228,10 @@ def render(shots, template, out: Path | str, *, now: datetime | None = None, pro
         raise ValueError(f"out must be an .mp4 path, got {out}")
     safeio.assert_writable(out)
     plan = assign_slots(shots, tpl)
+    if placeholder_blocked(tpl, out) and not allow_placeholder:
+        raise ValueError(f"template {tpl.get('name')!r} still carries PLACEHOLDER timings: refusing to render a "
+                         f"deliverable into {out.parent}; replace the template from RULES.md section 2 "
+                         "or pass --allow-placeholder (cache/ previews are always allowed)")
     prof = render_story.profile_for(encoder, False, profile)
 
     clips: dict[str, Path] = {}
@@ -225,20 +250,23 @@ def render(shots, template, out: Path | str, *, now: datetime | None = None, pro
     e = build_edl(plan, tpl, name or meta.get("name") or out.stem, meta)
     e.export.update({"transfer": "sdr", "reason": "b-roll shorts are always SDR bt709 (approved method)"})
     canvas = e.canvas_wh
+    filters = {c: shot_filters(infos[c], c) for c in clips}
+    notes = {c: shot_range_note(infos[c], c) for c in clips}
     jobs = [encode.SegJob(clip=clips[p["clip"]], start=p["in"], end=p["out"], transfer_out="sdr", canvas=canvas,
-                          preview=False, extra_vf=shot_filters(infos[p["clip"]]), audio="silent",
+                          preview=False, extra_vf=filters[p["clip"]], audio="silent",
                           info=infos[p["clip"]]) for p in plan]
     t0 = time.time()
     seg_results = encode.render_segments(jobs, prof, workers=workers)
     t_segs = time.time() - t0
     expected = sum(j.duration for j in jobs)
     stem = out.stem
-    join_target = encode.seg_cache_dir() / f"{stem}_join_{int(t_wall)}.mp4"
+    tag = f"{int(t_wall)}_{uuid.uuid4().hex[:8]}"
+    join_target = encode.seg_cache_dir() / f"{stem}_join_{tag}.mp4"
     join = encode.join_segments([r["path"] for r in seg_results], join_target, expected=expected)
     join_mode = "copy"
     if not join["ok"]:
         join_mode = "reencode"
-        join_target = encode.seg_cache_dir() / f"{stem}_join_{int(t_wall)}_re.mp4"
+        join_target = encode.seg_cache_dir() / f"{stem}_join_{tag}_re.mp4"
         join = render_story.reencode_join([r["path"] for r in seg_results], join_target, prof, "sdr",
                                           expected=expected)
     safeio.copy_file(join_target, out)
@@ -255,7 +283,8 @@ def render(shots, template, out: Path | str, *, now: datetime | None = None, pro
         "encoder": render_story._encoder_name(prof, False), "profile": prof.chosen, "canvas": list(canvas),
         "slots": [{"slot": p["slot"], "role": p["role"], "clip": Path(p["clip"]).name, "in": p["in"],
                    "out": p["out"], "s": p["s"], "piece": p["piece"], "hlg": infos[p["clip"]]["is_hlg"],
-                   "filters": shot_filters(infos[p["clip"]]), "cached": r["cached"], "seconds": r["seconds"]}
+                   "filters": filters[p["clip"]], "range_assumed": notes[p["clip"]],
+                   "cached": r["cached"], "seconds": r["seconds"]}
                   for p, r in zip(plan, seg_results)],
         "expected_duration": round(expected, 3), "duration": master["duration"],
         "duration_ok": abs(master["duration"] - float(tpl["total_s"])) <= config.BROLL_TOL,
@@ -270,6 +299,9 @@ def render(shots, template, out: Path | str, *, now: datetime | None = None, pro
     e.export.update({"rendered_et": result["rendered_et"], "out": str(out), "encoder": result["encoder"],
                      "canvas": {"w": canvas[0], "h": canvas[1]}, "duration": master["duration"],
                      "chat": str(chat_out), "template_placeholder": result["template_placeholder"]})
+    assumed = {Path(c).name: n for c, n in notes.items() if n}
+    if assumed:
+        e.export["range_assumed"] = assumed
     edl_side = out.with_name(f"{stem}.edl.json")
     render_side = out.with_name(f"{stem}.render.json")
     edlmod.save(e, edl_side)
@@ -288,10 +320,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--out", required=True, help="master mp4, e.g. post/2026-10-19/B_1430_name.mp4")
     ap.add_argument("--encoder", default=None, choices=["hevc_nvenc", "libx265"])
     ap.add_argument("--no-stage", action="store_true", help="read clips in place (skip the cache/clips copy)")
+    ap.add_argument("--allow-placeholder", action="store_true",
+                    help="render into post/ or hold/ although the template still has PLACEHOLDER timings")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     try:
-        res = render(args.shots, args.template, Path(args.out), encoder=args.encoder, stage=not args.no_stage)
+        res = render(args.shots, args.template, Path(args.out), encoder=args.encoder, stage=not args.no_stage,
+                     allow_placeholder=args.allow_placeholder)
     except (ValueError, FileNotFoundError, RuntimeError, safeio.SafeIOError) as e:
         print(f"error: {e}")
         return 1
