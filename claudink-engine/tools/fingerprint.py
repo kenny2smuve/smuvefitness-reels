@@ -59,7 +59,7 @@ PHASH_CLAUDIN_MIN = 20          # median distance at or above this: clearly not 
 HASH_SIZE = 8
 HIGHFREQ_FACTOR = 4
 GREY = (128, 128, 128)
-KINDS = ("delivery", "posted")
+KINDS = ("delivery", "posted", "legacy")   # legacy = old renders in D:\ClaudeInk\out (never re-delivered)
 STORE_VERSION = 1
 HLG_TRANSFERS = ("arib-std-b67", "smpte2084")
 # Same chain as tools.encode.TONEMAP_CPU (read from there when importable, so a change to the

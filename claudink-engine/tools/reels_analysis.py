@@ -14,16 +14,25 @@ What:
 - ``import_latest(csv_path, out, now)`` writes data/reels.csv: one row per media_id with the
   latest snapshot, the shortcode, posted_et, hours_live, views_24h and views_72h (the last
   snapshot at or before posted + 24h / 72h, "" when that window has not closed or has no
-  snapshot), views_72h_source and is_hit (yes/no, "" while unknown: a young reel is not a miss).
-- analysis over the imported rows: hit_rate_by_month, alone_vs_burst, watch_buckets, by_hour_et,
+  snapshot), views_72h_source, reach/shares/saves/avg_watch of that 72h snapshot, and is_hit
+  (yes/no, "" while unknown: a young reel is not a miss). A reel whose rows carry an unreadable
+  snapshot stamp keeps the readable ones (snapshot_flag says what was dropped). data/reels.csv is
+  replaced atomically without a ledger backup (it is regenerated from the original every day).
+- ``update_delivery_results(reels_rows, deliveries_csv, now)`` (daily-run step 4, section 8
+  Results): joins deliveries.csv to the reels rows on posted_shortcode and fills views_24h,
+  views_72h, shares_72h, saves_72h, avg_watch_72h (72h columns stay "" while the window is open).
+- analysis over the imported rows: hit_rate_by_month, alone_vs_burst (burst = 3+ other posts
+  within +/-60 min, a rolling window, see BURST_DEFINITION), watch_buckets, by_hour_et,
   by_weekday, engagement_per_1k (shares/saves per 1K medians), zero_post_days, posts_per_day;
   ``report`` writes data/analysis/summary.md and ``data_check`` writes register/data-check.md
-  marking W1, W2, W3 and W12 CONFIRMED / REFUTED / CANNOT with the recomputed numbers.
+  marking W1, W2, W3 and W12 CONFIRMED / REFUTED / CANNOT with the recomputed numbers (W3 over
+  the audit window 10/15 11:29 .. 10/18, current zero-post days reported in the note).
 - follows: "follows: n/a" unless a followers file (date,followers) is given; then follows/day is
   the day-over-day difference, labelled an estimate (section 8).
 
 Every time stamp is passed in (``now``); nothing here prints. CLI:
   py -m tools.reels_analysis import [--csv path] [--now ...] [--out data/reels.csv] [--json]
+  py -m tools.reels_analysis results [--reels data/reels.csv] [--deliveries ledgers/deliveries.csv]
   py -m tools.reels_analysis report [--since 2026-08-01] [--now ...] [--followers f.csv] [--json]
   py -m tools.reels_analysis data-check [--now ...] [--json]
 """
@@ -69,13 +78,23 @@ WATCH_MS_THRESHOLD = 300.0           # no reel averages 300 s of watch; above th
 REELS_HEADER = ["media_id", "shortcode", "link", "posted_utc", "posted_et", "snapshot_utc",
                 "snapshots", "hours_live", "views", "reach", "avg_watch_s", "saves", "shares",
                 "likes", "comments", "duration_s", "views_24h", "views_72h", "views_72h_source",
-                "is_hit", "caption"]
+                "reach_72h", "shares_72h", "saves_72h", "avg_watch_72h", "is_hit", "snapshot_flag",
+                "caption"]
+# the 72h-window columns of ledgers/deliveries.csv and the data/reels.csv column each comes from
+RESULT_COLUMNS = {"views_24h": "views_24h", "views_72h": "views_72h", "shares_72h": "shares_72h",
+                  "saves_72h": "saves_72h", "avg_watch_72h": "avg_watch_72h"}
+DELIVERIES_HEADER = ["id", "date", "slot", "type", "file", "chat_file", "phash", "hook1", "hook2",
+                     "caption", "status", "posted_shortcode", "views_24h", "views_72h",
+                     "shares_72h", "saves_72h", "avg_watch_72h", "tests", "notes"]
 WATCH_BUCKETS = (("<8", 0.0, 8.0), ("8-17", 8.0, 17.0), ("17-25", 17.0, 25.0), (">=25", 25.0, None))
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+BURST_WINDOW = timedelta(minutes=60)     # W2: "posted with 3 or more others inside the same hour"
+BURST_OTHERS = 3                         # a post is burst with >= 3 others within +/- 60 min
 _SHORTCODE_RE = re.compile(r"/(?:reel|reels|p|tv)/([A-Za-z0-9_-]+)")
 _DATE_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M",
                  "%m/%d/%Y %H:%M:%S", "%m/%d/%Y %H:%M", "%m/%d/%Y", "%Y-%m-%d", "%Y/%m/%d %H:%M:%S",
-                 "%Y-%m-%d %H:%M:%S%z", "%Y-%m-%dT%H:%M:%S%z")
+                 "%Y-%m-%d %H:%M:%S%z", "%Y-%m-%dT%H:%M:%S%z", "%Y%m%d%H%M%S", "%Y%m%d%H%M", "%Y%m%d")
+EPOCH_MIN, EPOCH_MAX = 1e8, 1e13         # a bare number is an epoch (s or ms) only in this range
 
 
 def _norm_col(name: str) -> str:
@@ -110,9 +129,11 @@ def parse_utc(v) -> datetime | None:
         return None
     if re.fullmatch(r"-?\d+(\.\d+)?", s):
         x = float(s)
-        if x > 1e11:
-            x /= 1000.0
-        return datetime.fromtimestamp(x, tz=config.UTC)
+        if EPOCH_MIN < x < EPOCH_MAX:
+            if x > 1e11:
+                x /= 1000.0
+            return datetime.fromtimestamp(x, tz=config.UTC)
+        # a digit string outside the epoch range (20261019, 202610191130) is a compact date
     s2 = s.replace("Z", "+00:00")
     dt = None
     try:
@@ -261,15 +282,24 @@ def latest_per_reel(history: dict, now: datetime) -> list[dict]:
         by_id[r["media_id"]].append(r)
     out: list[dict] = []
     for mid, grp in by_id.items():
-        has_snap = all(x["snapshot_utc"] is not None for x in grp)
-        snaps = sorted(grp, key=lambda x: (x["snapshot_utc"], x["order"])) if has_snap \
-            else sorted(grp, key=lambda x: x["order"])
+        with_snap = [x for x in grp if x["snapshot_utc"] is not None]
+        bad = len(grp) - len(with_snap)
+        has_snap = bool(with_snap)
+        snap_flag = ""
+        if has_snap:
+            snaps = sorted(with_snap, key=lambda x: (x["snapshot_utc"], x["order"]))
+            if bad:
+                snap_flag = f"{bad} row(s) without a readable snapshot stamp dropped"
+        else:
+            snaps = sorted(grp, key=lambda x: x["order"])
+            snap_flag = "no snapshot stamps: file order used, latest row = latest"
         last = snaps[-1]
         posted = next((x["posted_utc"] for x in reversed(snaps) if x["posted_utc"]), None)
         posted_et = to_et(posted)
         hours_live = round((now_utc - posted).total_seconds() / 3600.0, 1) if posted else None
         v24 = v72 = None
         src72 = ""
+        s72: dict | None = None
         if posted and has_snap:
             if now_utc >= posted + timedelta(hours=24):
                 s = _snapshot_at_or_before(snaps, posted + timedelta(hours=24))
@@ -277,12 +307,12 @@ def latest_per_reel(history: dict, now: datetime) -> list[dict]:
             if now_utc >= posted + timedelta(hours=config.HIT_WINDOW_H):
                 s = _snapshot_at_or_before(snaps, posted + timedelta(hours=config.HIT_WINDOW_H))
                 if s is not None:
-                    v72, src72 = s["views"], "snapshot"
+                    v72, src72, s72 = s["views"], "snapshot", s
                 else:
-                    v72, src72 = snaps[0]["views"], "earliest_after"
+                    v72, src72, s72 = snaps[0]["views"], "earliest_after", snaps[0]
         elif posted and not has_snap:
             if now_utc >= posted + timedelta(hours=config.HIT_WINDOW_H):
-                v72, src72 = last["views"], "latest_no_snapshot"
+                v72, src72, s72 = last["views"], "latest_no_snapshot", last
         if v72 is not None:
             is_hit = "yes" if v72 >= config.HIT_VIEWS else "no"
         elif last["views"] is not None and last["views"] >= config.HIT_VIEWS and posted and \
@@ -297,7 +327,12 @@ def latest_per_reel(history: dict, now: datetime) -> list[dict]:
             "views": last["views"], "reach": last["reach"], "avg_watch_s": last["avg_watch_s"],
             "saves": last["saves"], "shares": last["shares"], "likes": last["likes"],
             "comments": last["comments"], "duration_s": last["duration_s"],
-            "views_24h": v24, "views_72h": v72, "views_72h_source": src72, "is_hit": is_hit,
+            "views_24h": v24, "views_72h": v72, "views_72h_source": src72,
+            "reach_72h": s72["reach"] if s72 else None,
+            "shares_72h": s72["shares"] if s72 else None,
+            "saves_72h": s72["saves"] if s72 else None,
+            "avg_watch_72h": s72["avg_watch_s"] if s72 else None,
+            "is_hit": is_hit, "snapshot_flag": snap_flag,
             "caption": last["caption"],
         })
     out.sort(key=lambda r: (r["posted_utc"] or datetime.min.replace(tzinfo=config.UTC), r["media_id"]))
@@ -312,11 +347,29 @@ def _row_to_csv(r: dict) -> dict:
             out[k] = v.isoformat(timespec="seconds")
         elif v is None:
             out[k] = ""
-        elif k in NUMERIC or k in ("views_24h", "views_72h", "hours_live"):
+        elif k in NUMERIC or k in ("views_24h", "views_72h", "hours_live", "reach_72h",
+                                   "shares_72h", "saves_72h", "avg_watch_72h"):
             out[k] = _int_or_blank(v)
         else:
             out[k] = str(v)
     return out
+
+
+def write_csv_no_backup(target: Path, rows: Iterable[dict], header: Sequence[str]) -> Path:
+    """Replace a CSV under data/ (or any rewritable dir) atomically without the
+    state/ledger-backups/ copy that safeio.rewrite_csv keeps: data/reels.csv is regenerated
+    from the read-only original every morning, a backup of it is pure growth."""
+    import os
+    target = Path(target)
+    tmp = target.with_name(target.stem + ".tmp.csv")
+    with safeio.open_write(tmp, "w", overwrite=True) as f:
+        w = csv.DictWriter(f, fieldnames=list(header), extrasaction="ignore")
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in header})
+    safeio.assert_writable(target, overwrite=True)
+    os.replace(tmp, target)
+    return target
 
 
 def import_latest(csv_path: Path | str | None = None, out: Path | None = None,
@@ -328,12 +381,72 @@ def import_latest(csv_path: Path | str | None = None, out: Path | None = None,
     hist = load_history(src)
     rows = latest_per_reel(hist, now)
     csv_rows = [_row_to_csv(r) for r in rows]
-    safeio.rewrite_csv(target, csv_rows, REELS_HEADER)
+    write_csv_no_backup(target, csv_rows, REELS_HEADER)
+    flags = list(hist["flags"])
+    dropped = sum(1 for r in rows if r.get("snapshot_flag", "").endswith("dropped"))
+    if dropped and hist["mapping"].get("snapshot_utc"):
+        flags.append(f"{dropped} reel(s) had rows without a readable snapshot stamp (dropped; "
+                     "see snapshot_flag)")
     meta = {"source": str(src), "imported_et": now.astimezone(config.TZ).isoformat(timespec="seconds"),
             "reels": len(rows), "snapshots": len(hist["rows"]), "mapping": hist["mapping"],
-            "flags": hist["flags"]}
+            "flags": flags}
     safeio.write_json(target.with_name(target.stem + ".import.json"), meta, overwrite=True)
     return rows
+
+
+# --------------------------------------------------------------------------- results (daily-run step 4)
+def update_delivery_results(reels_rows: Sequence[dict], deliveries_csv: Path | None = None,
+                            now: datetime | None = None) -> dict:
+    """Fill views_24h, views_72h, shares_72h, saves_72h, avg_watch_72h of every deliveries.csv
+    row that has a posted_shortcode and an empty 72h column, from the imported reels rows
+    (joined on shortcode; the 72h values come from the last snapshot at or before posted + 72h,
+    "" while that window is still open). Rewrites the ledger through safeio.rewrite_csv.
+    Returns {updated, skipped, pending, missing, rows}: pending = window still open,
+    missing = shortcode not in the reels rows."""
+    p = Path(deliveries_csv) if deliveries_csv else (config.LEDGERS / "deliveries.csv")
+    rows = safeio.read_csv(p)
+    if not rows:
+        return {"updated": 0, "skipped": 0, "pending": 0, "missing": 0, "rows": [], "path": str(p)}
+    by_code: dict[str, dict] = {}
+    for r in reels_rows:
+        code = str(r.get("shortcode") or "").strip()
+        if code:
+            by_code[code] = r
+    header = list(rows[0].keys())
+    for col in DELIVERIES_HEADER:
+        if col not in header:
+            header.append(col)
+    updated = skipped = pending = missing = 0
+    touched: list[str] = []
+    for r in rows:
+        code = (r.get("posted_shortcode") or "").strip()
+        if not code:
+            skipped += 1
+            continue
+        if (r.get("views_72h") or "").strip():
+            skipped += 1
+            continue
+        reel = by_code.get(code)
+        if reel is None:
+            missing += 1
+            continue
+        if reel.get("views_72h") in (None, ""):
+            v24 = reel.get("views_24h")
+            if v24 not in (None, "") and not (r.get("views_24h") or "").strip():
+                r["views_24h"] = _int_or_blank(v24)
+                touched.append(r.get("id") or code)
+            pending += 1
+            continue
+        for ledger_col, reel_col in RESULT_COLUMNS.items():
+            v = reel.get(reel_col)
+            if v not in (None, ""):
+                r[ledger_col] = _int_or_blank(v)
+        updated += 1
+        touched.append(r.get("id") or code)
+    if touched:
+        safeio.rewrite_csv(p, rows, header)
+    return {"updated": updated, "skipped": skipped, "pending": pending, "missing": missing,
+            "rows": touched, "path": str(p)}
 
 
 def load_reels(path: Path | None = None) -> list[dict]:
@@ -410,21 +523,34 @@ def hit_rate_by_month(rows: Sequence[dict], since=None) -> list[dict]:
     return out
 
 
+BURST_DEFINITION = (f"alone = nothing else within {config.MIN_GAP_HOURS:g}h either side; burst = "
+                    f"{BURST_OTHERS}+ other posts within +/-{int(BURST_WINDOW.total_seconds() // 60)} "
+                    "min (rolling window on the posted times, W2 'with 3 or more others inside the "
+                    "same hour'; not clock-hour buckets); other = the rest")
+
+
 def post_groups(rows: Sequence[dict]) -> dict[str, list[dict]]:
-    """alone (nothing else within 3h either side), burst (3+ posts in the same ET clock hour),
-    other. A reel without a posted time goes nowhere."""
+    """alone (nothing else within MIN_GAP_HOURS either side), burst (at least BURST_OTHERS other
+    posts within +/- BURST_WINDOW, a rolling window so 10:40/10:50/11:05/11:15 is one burst),
+    other. A reel without a posted time goes nowhere. See BURST_DEFINITION."""
     timed = [(r, _posted_et(r)) for r in rows]
     timed = [(r, p) for r, p in timed if p is not None]
-    hour_counts: dict[str, int] = defaultdict(int)
-    for _r, p in timed:
-        hour_counts[p.strftime("%Y-%m-%d %H")] += 1
     gap = timedelta(hours=config.MIN_GAP_HOURS)
     groups: dict[str, list[dict]] = {"alone": [], "burst": [], "other": []}
-    for r, p in timed:
-        near = sum(1 for _o, q in timed if q is not p and abs(q - p) <= gap)
-        if near == 0:
+    for i, (r, p) in enumerate(timed):
+        near_gap = 0
+        near_hour = 0
+        for j, (_o, q) in enumerate(timed):
+            if j == i:
+                continue
+            delta = abs(q - p)
+            if delta <= gap:
+                near_gap += 1
+            if delta <= BURST_WINDOW:
+                near_hour += 1
+        if near_gap == 0:
             groups["alone"].append(r)
-        elif hour_counts[p.strftime("%Y-%m-%d %H")] >= 3:
+        elif near_hour >= BURST_OTHERS:
             groups["burst"].append(r)
         else:
             groups["other"].append(r)
@@ -603,7 +729,7 @@ def report(rows: Sequence[dict], since=None, now: datetime | None = None,
     L.extend(_md_table(["group", "n", "median views", "hits/known", "rate"],
                        [(k, v["n"], _fmt(v["median_views"]), f"{v['hits']}/{v['known']}",
                          _pct(v["hit_rate"])) for k, v in ab.items()]))
-    L.append("alone = nothing else within 3h either side; burst = 3+ posts in the same ET hour.")
+    L.append(BURST_DEFINITION + ".")
     L.append("")
     L.append("## Average watch buckets (W1)")
     wb = watch_buckets(sel)
@@ -649,12 +775,24 @@ def report(rows: Sequence[dict], since=None, now: datetime | None = None,
 
 
 # --------------------------------------------------------------------------- data check (WEAK_POINTS)
-PCT_TOL = 0.10          # a percentage claim is confirmed within 10 points
+PCT_TOL = 0.10          # a percentage claim of 20%+ is confirmed within 10 points
+PCT_TOL_SMALL_MIN = 0.03     # under 20%: within max(3 points, 25% of the claim)
+PCT_TOL_SMALL_REL = 0.25
 REL_TOL = 0.25          # a median / count claim is confirmed within 25%
+W3_AUDIT_FROM = datetime(2026, 10, 15, 11, 29, tzinfo=config.TZ)   # "nothing posted since 10/15 11:29"
+W3_AUDIT_UNTIL = date(2026, 10, 18)                                 # the audit date
+
+
+def pct_tolerance(claim: float) -> float:
+    """10 points for claims of 20%+; max(3 points, 25% relative) under 20%, so a recomputed
+    15% does not confirm a '7%' claim."""
+    if claim >= 0.20:
+        return PCT_TOL
+    return max(PCT_TOL_SMALL_MIN, PCT_TOL_SMALL_REL * claim)
 
 
 def _close_pct(a: float | None, claim: float) -> bool:
-    return a is not None and abs(a - claim) <= PCT_TOL
+    return a is not None and abs(a - claim) <= pct_tolerance(claim)
 
 
 def _close_rel(a: float | None, claim: float) -> bool:
@@ -735,20 +873,29 @@ def data_check(rows: Sequence[dict], now: datetime | None = None, out: Path | No
         direction = (b["median_views"] is not None and a["median_views"] is not None
                      and b["median_views"] < a["median_views"])
         items.append(("W2", "burst median 1,356 views / 10% hit vs alone 1,908 / 24%", rec,
-                      _verdict(oks), "alone beats burst on median views: " + ("yes" if direction else "no")))
+                      _verdict(oks), "alone beats burst on median views: " + ("yes" if direction else "no")
+                      + "; " + BURST_DEFINITION))
     else:
         items.append(("W2", "burst 1,356 / 10% vs alone 1,908 / 24%", "n/a", "CANNOT", "no posted times"))
 
-    # W3: zero-post days since 10/15
+    # W3: nothing posted 10/15 11:29 .. 10/18 (the audit window); current zero-post days separately
     if has_time and rows:
-        zpd = zero_post_days(rows, date(2026, 10, 16), now.date())
-        last_post = max((_posted_et(r) for r in rows if _posted_et(r) is not None), default=None)
-        rec = (f"{len(zpd)} zero-post day(s) 2026-10-16..{now.date().isoformat()}: "
-               f"{', '.join(d.isoformat() for d in zpd) or 'none'}; last post "
-               f"{last_post.isoformat(timespec='minutes') if last_post else 'n/a'}")
-        items.append(("W3", "nothing posted since 10/15 11:29 (zero-post days since then)", rec,
-                      "CONFIRMED" if zpd and last_post and last_post.date() <= date(2026, 10, 15)
-                      else "REFUTED", "counted on ET dates"))
+        times = [_posted_et(r) for r in rows if _posted_et(r) is not None]
+        in_window = sorted(t for t in times if W3_AUDIT_FROM < t <= datetime(
+            W3_AUDIT_UNTIL.year, W3_AUDIT_UNTIL.month, W3_AUDIT_UNTIL.day, 23, 59, 59, tzinfo=config.TZ))
+        zpd_audit = zero_post_days(rows, W3_AUDIT_FROM.date() + timedelta(days=1), W3_AUDIT_UNTIL)
+        last_post = max(times, default=None)
+        zpd_now = zero_post_days(rows, W3_AUDIT_UNTIL + timedelta(days=1), now.date()) \
+            if now.date() > W3_AUDIT_UNTIL else []
+        rec = (f"audit window {W3_AUDIT_FROM.strftime('%m/%d %H:%M')}..{W3_AUDIT_UNTIL.isoformat()}: "
+               f"{len(in_window)} post(s), {len(zpd_audit)} zero-post day(s) "
+               f"({', '.join(d.isoformat() for d in zpd_audit) or 'none'})")
+        note = (f"since the audit: {len(zpd_now)} zero-post day(s) "
+                f"{W3_AUDIT_UNTIL + timedelta(days=1)}..{now.date().isoformat()}"
+                + (f" ({', '.join(d.isoformat() for d in zpd_now[-10:])})" if zpd_now else "")
+                + f"; last post {last_post.isoformat(timespec='minutes') if last_post else 'n/a'}; ET dates")
+        items.append(("W3", "nothing posted 10/15 11:29 .. 10/18 (zero-post days since 10/15)", rec,
+                      "CONFIRMED" if not in_window else "REFUTED", note))
     else:
         items.append(("W3", "zero-post days since 10/15", "n/a", "CANNOT", "no posted times"))
 
@@ -767,7 +914,8 @@ def data_check(rows: Sequence[dict], now: datetime | None = None, out: Path | No
     L = [f"# Data check of WEAK_POINTS.md ({now.date().isoformat()} ET)", "",
          f"Rows: {len(rows)} reels from data/reels.csv. Hit = {config.HIT_VIEWS}+ views within "
          f"{config.HIT_WINDOW_H}h (the audit used latest views). Tolerance: percentages within "
-         f"{int(PCT_TOL * 100)} points, medians within {int(REL_TOL * 100)}%.", ""]
+         f"{int(PCT_TOL * 100)} points (claims under 20%: max({int(PCT_TOL_SMALL_MIN * 100)} points, "
+         f"{int(PCT_TOL_SMALL_REL * 100)}% of the claim)), medians within {int(REL_TOL * 100)}%.", ""]
     L.extend(_md_table(["item", "claim", "recomputed", "verdict", "note"], items))
     L.append("")
     counts = defaultdict(int)
@@ -807,6 +955,10 @@ def _build_parser() -> argparse.ArgumentParser:
     sr.add_argument("--reels", type=Path, default=None, help="default data/reels.csv")
     sd = sub.add_parser("data-check", parents=[common], help="write register/data-check.md")
     sd.add_argument("--reels", type=Path, default=None)
+    sx = sub.add_parser("results", parents=[common],
+                        help="fill the 24h/72h result columns of ledgers/deliveries.csv (step 4)")
+    sx.add_argument("--reels", type=Path, default=None, help="default data/reels.csv")
+    sx.add_argument("--deliveries", type=Path, default=None, help="default ledgers/deliveries.csv")
     return p
 
 
@@ -829,6 +981,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not rows:
             print("no rows: run import first", file=sys.stderr)
             return 1
+        if args.cmd == "results":
+            res = update_delivery_results(rows, args.deliveries, now)
+            if args.json:
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"results: {res['updated']} updated, {res['pending']} still inside 72h, "
+                      f"{res['missing']} shortcode(s) not in reels.csv, {res['skipped']} skipped "
+                      f"-> {res['path']}")
+            return 0
         if args.cmd == "report":
             text = report(rows, args.since, now, args.followers)
             if args.json:

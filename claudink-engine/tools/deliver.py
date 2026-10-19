@@ -438,31 +438,64 @@ def _gates_info(reel: Path) -> tuple[dict | None, str | None]:
     return data, None
 
 
+def used_caption_bodies() -> list[str]:
+    """Caption bodies already used: captions_used.csv plus every counted deliveries.csv row
+    (the ledger the engine itself writes), so the same caption never goes out twice."""
+    from . import hook_gate     # lazy: another builder's module
+    out = list(hook_gate.used_captions())
+    for r in delivered_rows_counted():
+        body = hook_gate.caption_body(r.get("caption") or "")
+        if body:
+            out.append(body)
+    return out
+
+
+def delivered_rows_counted() -> list[dict]:
+    """deliveries.csv rows that reached post/<date>/ (status not in NOT_COUNTED), any date."""
+    return [r for r in _read_csv_rows(deliveries_path())
+            if (r.get("status") or "").strip().lower() not in NOT_COUNTED]
+
+
 def _hook_check(hooks: Sequence[str], caption: str, pieces: Sequence[str] | None) -> list[str]:
     from . import hook_gate     # lazy: another builder's module
     reasons: list[str] = []
-    if len([h for h in hooks if h and h.strip()]) < 2:
-        reasons.append("two hooks are required")
+    clean = [h for h in hooks if h and h.strip()]
+    if len(clean) != 2:
+        reasons.append(f"exactly two hooks are required, got {len(clean)}")
         return reasons
     ph = hook_gate.pieces_hours_from_rows(pieces_rows(), only=list(pieces) if pieces else None)
-    res = hook_gate.check_pair(hooks[0], hooks[1], hook_gate.burned_hooks(),
-                               hook_gate.used_captions(), None, ph)
+    used_caps = used_caption_bodies()
+    res = hook_gate.check_pair(hooks[0], hooks[1], hook_gate.burned_hooks(), used_caps, None, ph)
     if not res["ok"]:
         reasons.extend("hook gate: " + r for r in res["reasons"])
+    body = hook_gate.caption_body(caption or "")
+    if not body:
+        reasons.append("caption has no body before the tail")
+    else:
+        sim, who = hook_gate.best_match(body, used_caps)
+        if who is not None and sim >= config.HOOK_FUZZY_MATCH:
+            reasons.append(f"caption body already used ({sim:.2f} similar): {who!r}")
     if not hook_gate.caption_tail_ok(caption):
         reasons.append("caption does not end with the exact tail: " + config.CAPTION_TAIL)
     return reasons
 
 
 def _reupload_check(reel: Path) -> tuple[dict | None, list[str]]:
-    """Frame-1 phash against deliveries.csv rows and posted signatures (hard)."""
+    """The re-upload guard (hard). Frame-1 phash against every deliveries.csv row that carried a
+    render (only dryrun/cancelled/planned are skipped; a HOLD cut's own held row is exempt by
+    file name, never by status), then frame 1 and the full multi-scale signature against the
+    store kinds posted, delivery and legacy."""
     from . import fingerprint   # lazy: needs pillow + numpy
     sig = fingerprint.signature(reel)
     f1 = sig["frame1"]
     reasons: list[str] = []
+    own = reel.name.lower()
     for r in _read_csv_rows(deliveries_path()):
-        if (r.get("status") or "").strip().lower() in NOT_COUNTED:
+        status = (r.get("status") or "").strip().lower()
+        if status in REUPLOAD_SKIPPED:
             continue
+        if status == "held" and Path(r.get("file") or "").name.lower() == own:
+            continue            # a HOLD cut re-delivered from hold/ matches its own held row
         ph = (r.get("phash") or "").strip()
         if not ph:
             continue
@@ -472,13 +505,73 @@ def _reupload_check(reel: Path) -> tuple[dict | None, list[str]]:
             continue
         if dist <= config.PHASH_MATCH_MAX:
             reasons.append(f"re-upload: frame 1 matches delivery {r.get('id') or r.get('file')} "
-                           f"(distance {dist})")
+                           f"(status {status or 'delivered'}, distance {dist})")
             break
     rep = fingerprint.frame1_report(reel, sig=sig)
     if rep.get("reused"):
         reasons.append(f"re-upload: frame 1 matches posted reel {rep.get('key')} "
                        f"(distance {rep.get('distance')})")
+    store = fingerprint.load_store()
+    for key, entry in fingerprint.entries_of_kind(store, REUPLOAD_KINDS).items():
+        try:
+            dd = fingerprint.distance(sig, entry["sig"])
+        except (ValueError, KeyError, TypeError):
+            continue
+        if dd["median"] <= config.PHASH_MATCH_MAX:
+            reasons.append(f"re-upload: signature matches {entry.get('kind')} reel {key} "
+                           f"(median distance {dd['median']:g})")
+            break
+        if entry.get("kind") == "legacy" and dd["frame1"] <= config.PHASH_MATCH_MAX:
+            reasons.append(f"re-upload: frame 1 matches legacy render {key} "
+                           f"(distance {dd['frame1']})")
+            break
     return sig, reasons
+
+
+def _time_rule_check(slot: str, when: datetime, now: datetime, slots: dict,
+                     his: Sequence[datetime], force_reason: str | None,
+                     notes: list[str]) -> list[str]:
+    """Section 10/12 time rules. Only the lead-time rule can be forced (logged)."""
+    refused: list[str] = []
+    d, ds = when.date(), when.date().isoformat()
+    lead = timedelta(minutes=config.MIN_LEAD_MINUTES)
+    gap = timedelta(hours=config.MIN_GAP_HOURS)
+    if when.hour >= config.LATEST_POST_HOUR:
+        refused.append(f"slot {when:%H:%M} is at or after {config.LATEST_POST_HOUR:02d}:00 ET "
+                       f"(nothing after {config.LATEST_POST_HOUR - 12}pm)")
+    if when.date() <= now.date() and when < now + lead:
+        msg = (f"slot {when:%H:%M} on {ds} has passed or is under {config.MIN_LEAD_MINUTES} min "
+               f"away (now {now:%H:%M} ET); plan the next valid slot")
+        if force_reason:
+            notes.append(f"FORCED past '{msg}': {force_reason}")
+        else:
+            refused.append(msg)
+    other_times: list[datetime] = []
+    for letter, x in slots.items():
+        if letter == slot or not x.get("time"):
+            continue
+        try:
+            other_at = _at(d, x["time"])
+        except ValueError:
+            continue
+        other_times.append(other_at)
+        if abs(when - other_at) < gap:
+            refused.append(f"slot {slot} at {when:%H:%M} is under {config.MIN_GAP_HOURS:g}h from "
+                           f"slot {letter} at {x['time']} ({x.get('file') or 'delivered'})")
+    same_slot = timedelta(minutes=HIS_POST_SAME_SLOT_MIN)
+    extra_his: list[datetime] = []
+    for h in his:
+        if any(abs(h - t) <= same_slot for t in other_times):
+            continue            # he posted the delivered reel: not a third post
+        extra_his.append(h)
+        if abs(when - h) < gap:
+            refused.append(f"he posted at {h:%H:%M} ET on {ds}; slot {slot} at {when:%H:%M} is "
+                           f"under {config.MIN_GAP_HOURS:g}h from it (shift the slot)")
+    if extra_his and len(extra_his) + len(slots) >= config.MAX_POSTS_PER_DAY:
+        refused.append(f"he posted {len(extra_his)}x on {ds} "
+                       f"({', '.join(h.strftime('%H:%M') for h in extra_his)}) and "
+                       f"{len(slots)} reel(s) are delivered: cap {config.MAX_POSTS_PER_DAY}/day")
+    return refused
 
 
 # --------------------------------------------------------------------------- deliver
@@ -508,14 +601,24 @@ def deliver(reel: Path, chat: Path, slot: str, when: datetime, kind: str, hooks:
         refused.append(f"chat copy not found: {chat}")
     if refused:
         return {"ok": False, "refused": refused, "date": ds, "slot": slot}
+    chat_bytes = chat.stat().st_size
+    if chat_bytes > config.CHAT_COPY_MAX_BYTES:
+        refused.append(f"chat copy is {chat_bytes / 1024 / 1024:.1f} MB > "
+                       f"{config.CHAT_COPY_MAX_BYTES // 1024 // 1024} MB (not sendable in chat)")
 
-    # 1. gates
+    # 1. gates + EDL sidecars
     gates, gerr = _gates_info(reel)
     if gerr:
         if force_reason:
             notes.append(f"FORCED past gates ({gerr}): {force_reason}")
         else:
             refused.append(gerr)
+    edl_src = Path(edl) if edl else edl_path(reel)
+    edl_data = safeio.read_json(edl_src, default=None) if edl_src.is_file() else None
+    if not isinstance(edl_data, dict):
+        refused.append(f"no EDL sidecar {edl_src.name} next to the reel (pass --edl); it carries "
+                       "the type, session, pieces and labels")
+        edl_data = {}
 
     # 2. never re-upload list
     if reel.stem.lower() in {x.lower() for x in config.NEVER_REUPLOAD}:
@@ -528,11 +631,11 @@ def deliver(reel: Path, chat: Path, slot: str, when: datetime, kind: str, hooks:
     elif slot in slots:
         refused.append(f"slot {slot} already delivered for {ds}: {slots[slot]['file']}")
 
-    # 4. the other reel of the day: type, session, HOLD pairing
+    # 4. time rules: lead, latest hour, gap to the other slot and to his own posts, cap
+    refused.extend(_time_rule_check(slot, when, now, slots, his_posts_on(d), force_reason, notes))
+
+    # 5. the other reel of the day: type, session, HOLD pairing
     slug, source = reel_slug(reel)
-    edl_src = Path(edl) if edl else edl_path(reel)
-    edl_data = safeio.read_json(edl_src, default=None) if edl_src.is_file() else None
-    edl_data = edl_data if isinstance(edl_data, dict) else {}
     rtype = str((gates or {}).get("type") or edl_data.get("type") or "")
     session = str(edl_data.get("session") or "")
     for other in _entries_for(d):
@@ -552,14 +655,14 @@ def deliver(reel: Path, chat: Path, slot: str, when: datetime, kind: str, hooks:
             else:
                 refused.append(msg)
 
-    # 5. hooks and caption
+    # 6. hooks and caption
     pieces = [str(p) for p in (edl_data.get("pieces") or [])]
     refused.extend(_hook_check(hooks, caption, pieces))
 
     if refused:
         return {"ok": False, "refused": refused, "date": ds, "slot": slot, "notes": notes}
 
-    # 6. re-upload guard (frame-1 phash)
+    # 7. re-upload guard (frame-1 phash + full signature)
     sig, rr = _reupload_check(reel)
     if rr:
         return {"ok": False, "refused": rr, "date": ds, "slot": slot, "notes": notes}
@@ -590,19 +693,34 @@ def deliver(reel: Path, chat: Path, slot: str, when: datetime, kind: str, hooks:
         "status": "delivered", "tests": tests or "", "notes": "; ".join(notes),
     }
     safeio.append_csv_row(deliveries_path(), row, DELIVERIES_HEADER)
+    # the hooks and the caption are used from now on (FOLLOWUP 15): hooks.csv + captions_used.csv
+    for h in hooks[:2]:
+        safeio.append_csv_row(config.LEDGERS / "hooks.csv",
+                              {"hook": h, "type": rtype, "used_on": ds, "reel": rid, "status": "ok"},
+                              HOOKS_HEADER)
+    safeio.append_csv_row(config.LEDGERS / "captions_used.csv",
+                          {"caption": caption, "used_on": ds, "reel": rid}, CAPTIONS_HEADER)
     try:
         from . import fingerprint
         fingerprint.add_signature(rid, files["reel"], "delivery", now=now, sig=sig)
     except Exception as exc:   # the delivery stands even if the store write fails
         notes.append(f"signature store not updated: {exc}")
 
-    # ---- Drive mirror
+    # ---- Drive mirror (never raises: the ledger row is written, a retry regenerates POST_THIS)
     mirrored: list[Path] = []
     if mirror:
         if config.DRIVE_OUT.is_dir():
             ddir = drive_post_dir(d)
             for key, src in files.items():
-                mirrored.append(safeio.copy_file(src, ddir / src.name))
+                dst = ddir / src.name
+                if dst.is_file() and dst.stat().st_size == src.stat().st_size:
+                    mirrored.append(dst)
+                    notes.append(f"Drive already had {dst.name} (same size); kept")
+                    continue
+                try:
+                    mirrored.append(safeio.copy_file(src, dst))
+                except (safeio.SafeIOError, OSError) as exc:
+                    notes.append(f"Drive mirror failed for {src.name}: {exc}")
         else:
             notes.append(f"Drive folder missing ({config.DRIVE_OUT}); mirror skipped")
 
@@ -692,7 +810,8 @@ def hold_pick(exclude_names: Sequence[str] = (), now: datetime | None = None) ->
 
 
 def hold_count() -> int:
-    return len(hold_list())
+    """Rule-passing cuts in hold/ (HOLD_MIN counts only cuts that could go out, W3)."""
+    return len([r for r in hold_list() if r["gates_pass"]])
 
 
 # --------------------------------------------------------------------------- plan
@@ -760,7 +879,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sd.add_argument("--edl", type=Path, default=None)
     sd.add_argument("--labels", action="append", default=[], help="piece=label")
     sd.add_argument("--tests", default="")
-    sd.add_argument("--force", default=None, help="reason to deliver past failing gates (logged)")
+    sd.add_argument("--force", default=None,
+                    help="reason to deliver past failing gates, a same type/session day or a "
+                         "short lead time (logged into deliveries.csv notes)")
     sd.add_argument("--no-mirror", action="store_true")
 
     sh = sub.add_parser("hold", parents=[common], help="file a runner-up in hold/")

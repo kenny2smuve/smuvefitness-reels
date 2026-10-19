@@ -1,4 +1,5 @@
-"""Tests for tools/deliver.py (section 9 delivery, HOLD queue, POST_THIS, re-upload guard)."""
+"""Tests for tools/deliver.py (section 9 delivery, time rules, HOLD queue, POST_THIS,
+re-upload guard incl. legacy rows, hook/caption ledgers, Drive mirror retry, CLI)."""
 from __future__ import annotations
 
 import csv
@@ -21,7 +22,13 @@ A_AT = datetime(2026, 10, 19, 11, 0, tzinfo=config.TZ)
 B_AT = datetime(2026, 10, 19, 14, 30, tzinfo=config.TZ)
 HOOKS_A = ["Would you sit 7 hours for this?", "7 hours in one sitting. Worth it?"]
 HOOKS_B = ["Would you sit through this one?", "Healed at 3 months. Still clean?"]
+HOOKS_C = ["Could you handle the ribs?", "Ribs or spine: which hurts more?"]
 CAPTION = "Would you sit 7 hours for one piece?\n\n" + TAIL
+CAPTION_B = "Healed at 3 months. Would you trust it to stay this clean?\n\n" + TAIL
+CAPTION_C = "Ribs or spine, which one would you pick first?\n\n" + TAIL
+LEDGER_HEADER = ["id", "date", "slot", "type", "file", "chat_file", "phash", "hook1", "hook2",
+                 "caption", "status", "posted_shortcode", "views_24h", "views_72h",
+                 "shares_72h", "saves_72h", "avg_watch_72h", "tests", "notes"]
 
 
 @pytest.fixture(scope="module")
@@ -68,12 +75,17 @@ def _pieces_csv():
                           ["piece", "sessions", "hours", "color", "healed_footage", "rest_until", "notes"])
 
 
-def _rows() -> list[dict]:
-    p = config.LEDGERS / "deliveries.csv"
+def _rows(name: str = "deliveries") -> list[dict]:
+    p = config.LEDGERS / f"{name}.csv"
     if not p.exists():
         return []
     with open(p, encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
+
+
+def _his_post(iso: str, mid: str = "1") -> None:
+    safeio.append_csv_row(config.DATA / "reels.csv", {"media_id": mid, "posted_et": iso},
+                          ["media_id", "posted_et"])
 
 
 def _deliver_a(dl, tmp_path, base_clips, **over):
@@ -88,7 +100,7 @@ def _deliver_a(dl, tmp_path, base_clips, **over):
 def _deliver_b(dl, tmp_path, base_clips, **over):
     reel, chat = _work(tmp_path, base_clips, "broll", "mudvayne_B", rtype="broll", session="",
                        pieces=("Mudvayne",))
-    kw = dict(slot="B", when=B_AT, kind="SAVE", hooks=HOOKS_B, caption=CAPTION, now=NOW,
+    kw = dict(slot="B", when=B_AT, kind="SAVE", hooks=HOOKS_B, caption=CAPTION_B, now=NOW,
               tests="X2: hour labels on")
     kw.update(over)
     return dl.deliver(reel, chat, **kw)
@@ -121,6 +133,15 @@ def test_full_deliver_a_then_b(engine_root, tmp_path, base_clips):
     assert rows[0]["tests"] == "X1 arm B: A at 11:00 alone"
     assert rows[0]["file"] == "post/2026-10-19/A_1100_shoulder7h-a.mp4"
     assert rows[0]["type"] == "story" and rows[1]["type"] == "broll"
+
+    # hooks.csv and captions_used.csv record what went out (FOLLOWUP 15)
+    hk = _rows("hooks")
+    assert [(h["hook"], h["status"], h["used_on"], h["reel"]) for h in hk] == [
+        (HOOKS_A[0], "ok", "2026-10-19", ra["id"]), (HOOKS_A[1], "ok", "2026-10-19", ra["id"]),
+        (HOOKS_B[0], "ok", "2026-10-19", rb["id"]), (HOOKS_B[1], "ok", "2026-10-19", rb["id"])]
+    cu = _rows("captions_used")
+    assert [(c["caption"], c["used_on"], c["reel"]) for c in cu] == [
+        (CAPTION, "2026-10-19", ra["id"]), (CAPTION_B, "2026-10-19", rb["id"])]
 
     # Drive mirror: the four files + POST_THIS
     drive = config.DRIVE_POST / "2026-10-19"
@@ -167,14 +188,20 @@ def test_tiktok_line_absent_after_nov_1_and_blocked_breakout_lines(engine_root, 
     assert "TikTok:" not in txt
     assert "A - post at 11:00 ET, alone" in txt
 
-    # blocked.txt -> first line; breakout < 24h -> "Share ... to the grid" next
-    safeio.write_text(config.STATE / "blocked.txt", "PC was asleep at 10:05; relay missed A\n")
+    # blocked.txt: EVERY non-empty line (the 5.11 stock warning is the second line), then
+    # notice.txt verbatim, then breakout < 24h -> "Share ... to the grid"
+    safeio.write_text(config.STATE / "blocked.txt",
+                      "PC was asleep at 10:05; relay missed A\n\n"
+                      "BLOCKED: Upload your last session's glasses clips to Drive\n")
+    safeio.write_text(config.STATE / "notice.txt", "Stock: 2 sessions left, shoot this week\n")
     safeio.write_json(config.STATE / "breakout.json",
                       {"shortcode": "DehJPlnKk8I", "at": (NOW - timedelta(hours=2)).isoformat()})
     lines = dl.post_this_text("2026-10-19", NOW).splitlines()
     assert lines[0] == "BLOCKED: PC was asleep at 10:05; relay missed A"
-    assert lines[1] == "Share DehJPlnKk8I to the grid"
-    assert lines[2] == ""
+    assert lines[1] == "BLOCKED: Upload your last session's glasses clips to Drive"
+    assert lines[2] == "Stock: 2 sessions left, shoot this week"
+    assert lines[3] == "Share DehJPlnKk8I to the grid"
+    assert lines[4] == ""
     # breakout older than 24h is dropped
     safeio.write_json(config.STATE / "breakout.json",
                       {"shortcode": "DehJPlnKk8I", "at": (NOW - timedelta(hours=30)).isoformat()},
@@ -200,17 +227,79 @@ def test_cap_and_same_slot_refused(engine_root, tmp_path, base_clips):
     assert _deliver_a(dl, tmp_path, base_clips)["ok"]
     # same slot letter again (different reel)
     reel, chat = _work(tmp_path, base_clips, "third", "akira_A", session="Akira")
-    r = dl.deliver(reel, chat, "A", A_AT, "SEND", HOOKS_B, CAPTION, NOW)
+    r = dl.deliver(reel, chat, "A", A_AT, "SEND", HOOKS_B, CAPTION_B, NOW)
     assert not r["ok"] and any("slot A already delivered" in x for x in r["refused"])
     assert _deliver_b(dl, tmp_path, base_clips)["ok"]
     # third reel of the day: the cap
     reel, chat = _work(tmp_path, base_clips, "third", "third_th", rtype="th", session="Talking head")
     r = dl.deliver(reel, chat, "A", datetime(2026, 10, 19, 18, 0, tzinfo=config.TZ), "SEND",
-                   HOOKS_B, CAPTION, NOW)
+                   HOOKS_C, CAPTION_C, NOW)
     assert not r["ok"]
     assert any("already holds 2" in x for x in r["refused"]), r
     assert len(_rows()) == 2
     assert not list((config.POST / "2026-10-19").glob("*third*"))
+
+
+def test_time_rules_refused(engine_root, tmp_path, base_clips):
+    from tools import deliver as dl
+    _pieces_csv()
+    # a slot that has already passed (section 10), under MIN_LEAD_MINUTES, and after 21:00
+    r = _deliver_a(dl, tmp_path, base_clips, when=datetime(2026, 10, 19, 6, 0, tzinfo=config.TZ))
+    assert not r["ok"] and any("has passed or is under 45 min" in x for x in r["refused"]), r
+    r = _deliver_a(dl, tmp_path, base_clips, when=NOW + timedelta(minutes=30))
+    assert not r["ok"] and any("has passed or is under 45 min" in x for x in r["refused"])
+    r = _deliver_a(dl, tmp_path, base_clips, when=datetime(2026, 10, 19, 23, 0, tzinfo=config.TZ))
+    assert not r["ok"] and any("at or after 21:00 ET" in x for x in r["refused"])
+    assert _rows() == []
+    # tomorrow's slot is fine even when its clock time is earlier than now (next-day delivery)
+    r = _deliver_a(dl, tmp_path, base_clips, when=datetime(2026, 10, 20, 7, 0, tzinfo=config.TZ),
+                   now=datetime(2026, 10, 19, 18, 0, tzinfo=config.TZ))
+    assert r["ok"], r
+    assert Path(r["files"]["reel"]).name == "A_0700_shoulder7h-a.mp4"
+    # B inside 3h of that A is refused (14:30 is fine: delivered in the next test)
+    r = _deliver_b(dl, tmp_path, base_clips, when=datetime(2026, 10, 20, 9, 0, tzinfo=config.TZ),
+                   now=datetime(2026, 10, 19, 18, 0, tzinfo=config.TZ))
+    assert not r["ok"] and any("under 3h from slot A at 07:00" in x for x in r["refused"]), r
+    r = _deliver_b(dl, tmp_path, base_clips, when=datetime(2026, 10, 20, 10, 0, tzinfo=config.TZ),
+                   now=datetime(2026, 10, 19, 18, 0, tzinfo=config.TZ))
+    assert r["ok"], r
+
+
+def test_short_lead_forced_and_logged(engine_root, tmp_path, base_clips):
+    from tools import deliver as dl
+    _pieces_csv()
+    r = _deliver_a(dl, tmp_path, base_clips, when=NOW + timedelta(minutes=20),
+                   force_reason="relay already waiting")
+    assert r["ok"], r
+    note = _rows()[0]["notes"]
+    assert "FORCED past 'slot 07:00" in note and "relay already waiting" in note
+    # the latest-hour rule cannot be forced
+    r = _deliver_b(dl, tmp_path, base_clips, when=datetime(2026, 10, 19, 21, 30, tzinfo=config.TZ),
+                   force_reason="whatever")
+    assert not r["ok"] and any("at or after 21:00" in x for x in r["refused"])
+
+
+def test_his_own_posts_shift_or_block_the_slot(engine_root, tmp_path, base_clips):
+    from tools import deliver as dl
+    _pieces_csv()
+    # he posted at 10:30 (data/reels.csv): A at 11:00 is inside 3h, 13:30 is fine
+    _his_post("2026-10-19T10:30:00-04:00")
+    r = _deliver_a(dl, tmp_path, base_clips)
+    assert not r["ok"] and any("he posted at 10:30 ET" in x and "shift the slot" in x for x in r["refused"]), r
+    assert _rows() == []
+    r = _deliver_a(dl, tmp_path, base_clips, when=datetime(2026, 10, 19, 13, 30, tzinfo=config.TZ))
+    assert r["ok"], r
+    # his post + our A = 2: a B is over the cap even 3h later
+    r = _deliver_b(dl, tmp_path, base_clips, when=datetime(2026, 10, 19, 17, 0, tzinfo=config.TZ))
+    assert not r["ok"] and any("he posted 1x on 2026-10-19 (10:30)" in x and "cap 2/day" in x
+                               for x in r["refused"]), r
+    # but a post of his within 30 min of the delivered A IS that A (he posted it): B still fits
+    _his_post("2026-10-19T13:40:00-04:00", mid="2")
+    (config.DATA / "reels.csv").write_text(
+        "media_id,posted_et\n2,2026-10-19T13:40:00-04:00\n", encoding="utf-8")
+    r = _deliver_b(dl, tmp_path, base_clips, when=datetime(2026, 10, 19, 17, 0, tzinfo=config.TZ),
+                   now=datetime(2026, 10, 19, 14, 0, tzinfo=config.TZ))
+    assert r["ok"], r
 
 
 def test_same_type_or_session_refused_unless_forced(engine_root, tmp_path, base_clips):
@@ -219,9 +308,9 @@ def test_same_type_or_session_refused_unless_forced(engine_root, tmp_path, base_
     assert _deliver_a(dl, tmp_path, base_clips)["ok"]
     reel, chat = _work(tmp_path, base_clips, "third", "shoulder_again_B", rtype="story",
                        session="Shoulder 7h")
-    r = dl.deliver(reel, chat, "B", B_AT, "SAVE", HOOKS_B, CAPTION, NOW)
+    r = dl.deliver(reel, chat, "B", B_AT, "SAVE", HOOKS_B, CAPTION_B, NOW)
     assert not r["ok"] and any("same type story and session Shoulder 7h" in x for x in r["refused"])
-    r = dl.deliver(reel, chat, "B", B_AT, "SAVE", HOOKS_B, CAPTION, NOW, force_reason="multi-day story")
+    r = dl.deliver(reel, chat, "B", B_AT, "SAVE", HOOKS_B, CAPTION_B, NOW, force_reason="multi-day story")
     assert r["ok"], r
     assert "FORCED" in _rows()[1]["notes"] and "multi-day story" in _rows()[1]["notes"]
 
@@ -238,11 +327,31 @@ def test_failing_gates_refused_and_force_logged(engine_root, tmp_path, base_clip
     assert r["ok"], r
     note = _rows()[0]["notes"]
     assert "FORCED past gates" in note and "HOLD is empty, never zero" in note
-    # a missing sidecar is also a refusal
+    # a missing gates sidecar is a refusal, and so is a missing EDL sidecar
     reel2, chat2 = _work(tmp_path, base_clips, "broll", "nogates_B", rtype="broll", session="")
     reel2.with_name("nogates_B.gates.json").unlink()
-    r = dl.deliver(reel2, chat2, "B", B_AT, "SAVE", HOOKS_B, CAPTION, NOW)
+    r = dl.deliver(reel2, chat2, "B", B_AT, "SAVE", HOOKS_B, CAPTION_B, NOW)
     assert not r["ok"] and any("no gates sidecar" in x for x in r["refused"])
+    reel3, chat3 = _work(tmp_path, base_clips, "broll", "noedl_B", rtype="broll", session="")
+    reel3.with_name("noedl_B.edl.json").unlink()
+    r = dl.deliver(reel3, chat3, "B", B_AT, "SAVE", HOOKS_B, CAPTION_B, NOW)
+    assert not r["ok"] and any("no EDL sidecar noedl_B.edl.json" in x for x in r["refused"])
+    # a missing chat copy
+    r = dl.deliver(reel3, reel3.with_name("nope_chat.mp4"), "B", B_AT, "SAVE", HOOKS_B, CAPTION_B, NOW)
+    assert not r["ok"] and any("chat copy not found" in x for x in r["refused"])
+
+
+def test_chat_size_and_hook_count_refused(engine_root, tmp_path, base_clips, monkeypatch):
+    from tools import deliver as dl
+    _pieces_csv()
+    r = _deliver_a(dl, tmp_path, base_clips, hooks=HOOKS_A + ["A third angle you did not ask for?"])
+    assert not r["ok"] and any("exactly two hooks are required, got 3" in x for x in r["refused"])
+    r = _deliver_a(dl, tmp_path, base_clips, hooks=[HOOKS_A[0]])
+    assert not r["ok"] and any("exactly two hooks are required, got 1" in x for x in r["refused"])
+    monkeypatch.setattr(config, "CHAT_COPY_MAX_BYTES", 1024)
+    r = _deliver_a(dl, tmp_path, base_clips)
+    assert not r["ok"] and any("chat copy is" in x and "MB > 0 MB" in x for x in r["refused"])
+    assert _rows() == []
 
 
 def test_reupload_same_frame1_refused(engine_root, tmp_path, base_clips):
@@ -251,12 +360,39 @@ def test_reupload_same_frame1_refused(engine_root, tmp_path, base_clips):
     assert _deliver_a(dl, tmp_path, base_clips)["ok"]
     # same picture under a new name on another day
     reel, chat = _work(tmp_path, base_clips, "story", "shoulder_recut_A")
-    r = dl.deliver(reel, chat, "A", A_AT + timedelta(days=1), "SEND", HOOKS_B, CAPTION,
+    r = dl.deliver(reel, chat, "A", A_AT + timedelta(days=1), "SEND", HOOKS_B, CAPTION_B,
                    NOW + timedelta(days=1))
     assert not r["ok"], r
     assert any(x.startswith("re-upload: frame 1 matches delivery 2026-10-19_A_shoulder7h-a") for x in r["refused"])
     assert not (config.POST / "2026-10-20").exists()
     assert len(_rows()) == 1
+
+
+def test_legacy_row_and_legacy_signature_refused(engine_root, tmp_path, base_clips):
+    from tools import deliver as dl
+    from tools import fingerprint as fp
+    _pieces_csv()
+    # one of the ~180 old renders catalogued as legacy in deliveries.csv (never signed as posted)
+    ph = fp.frame1_phash(base_clips["story"])
+    safeio.append_csv_row(config.LEDGERS / "deliveries.csv",
+                          {"id": "legacy_out_batch18_03", "date": "2026-10-07", "status": "legacy",
+                           "file": "D:/ClaudeInk/out/batch18_03.mp4", "phash": ph}, LEDGER_HEADER)
+    r = _deliver_a(dl, tmp_path, base_clips)
+    assert not r["ok"], r
+    assert any("re-upload: frame 1 matches delivery legacy_out_batch18_03 (status legacy" in x
+               for x in r["refused"])
+    # dryrun / cancelled / planned rows never carried a render: they do not block
+    (config.LEDGERS / "deliveries.csv").unlink()
+    for st in ("dryrun", "cancelled", "planned"):
+        safeio.append_csv_row(config.LEDGERS / "deliveries.csv",
+                              {"id": f"x_{st}", "date": "2026-10-07", "status": st, "phash": ph}, LEDGER_HEADER)
+    r = _deliver_a(dl, tmp_path, base_clips)
+    assert r["ok"], r
+    # a legacy entry in the signature store (footage_index/panel filed the old render) blocks the
+    # full 9-frame signature match even when the frame-1 row is gone
+    fp.add_signature("out_batch18_04", base_clips["broll"], "legacy", now=NOW)
+    r = _deliver_b(dl, tmp_path, base_clips)
+    assert not r["ok"] and any("signature matches legacy reel out_batch18_04" in x for x in r["refused"]), r
 
 
 def test_posted_signature_refused(engine_root, tmp_path, base_clips):
@@ -295,6 +431,23 @@ def test_hook_gate_and_caption_tail_refused(engine_root, tmp_path, base_clips):
     assert _rows() == []
 
 
+def test_caption_body_reuse_refused(engine_root, tmp_path, base_clips):
+    from tools import deliver as dl
+    _pieces_csv()
+    assert _deliver_a(dl, tmp_path, base_clips)["ok"]
+    # the same caption body (different hooks, different reel) the next day: refused
+    r = _deliver_b(dl, tmp_path, base_clips, caption=CAPTION, when=B_AT + timedelta(days=1),
+                   now=NOW + timedelta(days=1))
+    assert not r["ok"] and any("caption body already used" in x for x in r["refused"]), r
+    # captions_used.csv alone (a caption he used by hand) blocks it too
+    (config.LEDGERS / "deliveries.csv").unlink()
+    r = _deliver_b(dl, tmp_path, base_clips, caption=CAPTION, when=B_AT + timedelta(days=1),
+                   now=NOW + timedelta(days=1))
+    assert not r["ok"] and any("caption body already used" in x for x in r["refused"]), r
+    r = _deliver_b(dl, tmp_path, base_clips, when=B_AT + timedelta(days=1), now=NOW + timedelta(days=1))
+    assert r["ok"], r
+
+
 def test_mirror_skipped_when_drive_missing(engine_root, tmp_path, base_clips):
     from tools import deliver as dl
     _pieces_csv()
@@ -306,9 +459,40 @@ def test_mirror_skipped_when_drive_missing(engine_root, tmp_path, base_clips):
     assert (config.POST / "2026-10-19" / "POST_THIS.txt").is_file()
 
 
+def test_mirror_retry_after_crash_keeps_same_size_and_notes_conflicts(engine_root, tmp_path, base_clips):
+    """A crashed run left files in Drive: same size -> kept, different size -> noted, never raised."""
+    from tools import deliver as dl
+    _pieces_csv()
+    ddir = config.DRIVE_POST / "2026-10-19"
+    ddir.mkdir(parents=True)
+    shutil.copy(base_clips["story"], ddir / "A_1100_shoulder7h-a.mp4")          # identical
+    (ddir / "A_1100_shoulder7h-a.gates.json").write_text("{}", encoding="utf-8")   # different
+    r = _deliver_a(dl, tmp_path, base_clips)
+    assert r["ok"], r
+    assert any("already had A_1100_shoulder7h-a.mp4 (same size); kept" in n for n in r["notes"])
+    assert any(n.startswith("Drive mirror failed for A_1100_shoulder7h-a.gates.json") for n in r["notes"])
+    assert (ddir / "A_1100_shoulder7h-a_chat.mp4").is_file() and (ddir / "POST_THIS.txt").is_file()
+    assert len(_rows()) == 1
+
+
+def test_naive_times_and_non_ascii_stem(engine_root, tmp_path, base_clips):
+    from tools import deliver as dl
+    _pieces_csv()
+    reel, chat = _work(tmp_path, base_clips, "story", "Se\u00f1or Akira \u00e9p\u00e9e 7h",
+                       session="Akira", labels={"Shoulder": "7 hours"})
+    r = dl.deliver(reel, chat, "A", datetime(2026, 10, 19, 11, 0), "SEND", HOOKS_A, CAPTION,
+                   datetime(2026, 10, 19, 6, 40))
+    assert r["ok"], r
+    assert Path(r["files"]["reel"]).name == "A_1100_senor-akira-epee-7h.mp4"
+    assert r["id"] == "2026-10-19_A_senor-akira-epee-7h"
+    assert dl.slugify("\u00c9t\u00e9 -- 2026!") == "ete-2026"
+    assert dl.slugify("\u4e2d\u6587") == "reel"
+
+
 # --------------------------------------------------------------------------- HOLD
 def test_hold_round_trip_and_pick(engine_root, tmp_path, base_clips):
     from tools import deliver as dl
+    from tools import fingerprint as fp
     _pieces_csv()
     reel, chat = _work(tmp_path, base_clips, "story", "shoulder7h_B")
     out = dl.hold(reel, chat, None, None, "shoulder7h_B", "2026-10-18")
@@ -324,21 +508,34 @@ def test_hold_round_trip_and_pick(engine_root, tmp_path, base_clips):
     assert [(r["name"], r["date"], r["age_days"], r["gates_pass"]) for r in lst] == [
         ("shoulder7h-b", "2026-10-18", 1, True), ("mud-b", "2026-10-17", 2, False),
         ("akira-a", "2026-10-16", 3, True)]
-    assert dl.hold_count() == 3
+    assert dl.hold_count() == 2                      # mud-b fails gates: not a usable cut (W3)
     assert dl.hold_pick(now=NOW)["name"] == "shoulder7h-b"
     assert dl.hold_pick(["shoulder7h-b"], now=NOW)["name"] == "akira-a"      # mud-b fails gates
     assert dl.hold_pick(["shoulder7h-b", "akira-a"], now=NOW) is None
 
-    # deliver straight from HOLD: slug drops the HOLD_<date>_ prefix, note says so
+    # its own 'held' ledger row (same file) never blocks a HOLD cut; a held row of ANOTHER file
+    # with the same frame 1 does
     pick = dl.hold_pick(now=NOW)
+    safeio.append_csv_row(config.LEDGERS / "deliveries.csv",
+                          {"id": "held_shoulder7h-b", "date": "2026-10-18", "status": "held",
+                           "file": "hold/HOLD_2026-10-18_shoulder7h-b.mp4",
+                           "phash": fp.frame1_phash(base_clips["story"])}, LEDGER_HEADER)
     r = dl.deliver(Path(pick["file"]), Path(pick["chat"]), "A", A_AT, "SEND", HOOKS_A, CAPTION, NOW)
     assert r["ok"], r
     assert Path(r["files"]["reel"]).name == "A_1100_shoulder7h-b.mp4"
-    assert "from HOLD" in _rows()[0]["notes"]
+    assert "from HOLD" in _rows()[1]["notes"]
     # never two HOLD cuts together
     pick2 = dl.hold_pick(["shoulder7h-b"], now=NOW)
-    r = dl.deliver(Path(pick2["file"]), Path(pick2["chat"]), "B", B_AT, "SAVE", HOOKS_B, CAPTION, NOW)
+    r = dl.deliver(Path(pick2["file"]), Path(pick2["chat"]), "B", B_AT, "SAVE", HOOKS_B, CAPTION_B, NOW)
     assert not r["ok"] and any("never two HOLD cuts" in x for x in r["refused"])
+    # a fresh render with the frame 1 of a held cut of another name is a re-upload
+    reel4, chat4 = _work(tmp_path, base_clips, "third", "akira_recut_B", rtype="broll", session="Akira 2")
+    safeio.append_csv_row(config.LEDGERS / "deliveries.csv",
+                          {"id": "held_akira-a", "date": "2026-10-16", "status": "held",
+                           "file": "hold/HOLD_2026-10-16_akira-a.mp4",
+                           "phash": fp.frame1_phash(base_clips["third"])}, LEDGER_HEADER)
+    r = dl.deliver(reel4, chat4, "B", B_AT, "SAVE", HOOKS_B, CAPTION_B, NOW)
+    assert not r["ok"] and any("matches delivery held_akira-a (status held" in x for x in r["refused"]), r
     # holding the same name twice is refused by safeio (never overwrite a render)
     with pytest.raises(safeio.SafeIOError):
         dl.hold(reel, chat, None, None, "shoulder7h_B", "2026-10-18")
@@ -359,9 +556,7 @@ def test_plan_today_uses_post_folder_ledger_and_reels_csv(engine_root, tmp_path,
     assert [(s["slot"], s["label"], s["existing"]) for s in r1["slots"]] == [
         ("A", "11:00 ET", True), ("B", "14:30 ET", False)]
     # his own post today from data/reels.csv counts against the cap
-    safeio.append_csv_row(config.DATA / "reels.csv",
-                          {"media_id": "1", "posted_et": "2026-10-19T08:00:00-04:00"},
-                          ["media_id", "posted_et"])
+    _his_post("2026-10-19T08:00:00-04:00")
     r2 = dl.plan_today(datetime(2026, 10, 19, 9, 0, tzinfo=config.TZ), hold_count_=4)
     assert r2["his_posts"] == ["2026-10-19T08:00:00-04:00"]
     assert r2["posts_allowed_today"] == 1
@@ -390,3 +585,25 @@ def test_cli_deliver_and_post_this(engine_root, tmp_path, base_clips, capsys):
     assert rc == 0 and "Labels: Shoulder: 1 session / 7 hours" in txt and "Tests: X1" in txt
     rc = dl.main(["list-hold"])
     assert rc == 0 and "HOLD is empty" in capsys.readouterr().out
+
+
+def test_cli_force_no_mirror_and_plan(engine_root, tmp_path, base_clips, capsys):
+    pytest.importorskip("tools.slot_planner", reason="tools.slot_planner not built yet")
+    from tools import deliver as dl
+    _pieces_csv()
+    reel, chat = _work(tmp_path, base_clips, "story", "dark_A", passed=False)
+    args = ["deliver", str(reel), "--chat", str(chat), "--slot", "A", "--when", "2026-10-19T11:00",
+            "--kind", "SEND", "--hook", HOOKS_A[0], "--hook", HOOKS_A[1], "--caption", CAPTION]
+    rc = dl.main(["--now", "2026-10-19T06:40"] + args)
+    assert rc == 1 and "REFUSED: gates failed (G1)" in capsys.readouterr().out
+    rc = dl.main(["--now", "2026-10-19T06:40"] + args + ["--force", "HOLD empty", "--no-mirror", "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0 and out["ok"] and out["mirrored"] == [] and out["post_this_drive"] is None
+    assert not (config.DRIVE_POST / "2026-10-19").exists()
+    assert "FORCED past gates" in _rows()[0]["notes"] and "HOLD empty" in _rows()[0]["notes"]
+    rc = dl.main(["--now", "2026-10-19T09:00", "plan", "--hold", "4"])
+    txt = capsys.readouterr().out
+    assert rc == 0 and "A" in txt and "B" in txt and "11:00" in txt
+    rc = dl.main(["--now", "2026-10-19T09:00", "plan", "--posted", "08:00", "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0 and out["posts_allowed_today"] == 1 and out["his_posts"] == ["2026-10-19T08:00:00-04:00"]
