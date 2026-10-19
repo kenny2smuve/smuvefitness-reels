@@ -42,3 +42,20 @@
 15. `tools/hook_gate.py`: rows with status `ok` in hooks.csv are candidates that passed the gate but
     were never posted; they still count as "used" for similarity ONLY when `used_on` is set.
     Burned/retired/losing_type always count. Align with ledgers.burned_hooks().
+16. DECISION, transfer policy for a mixed story (supersedes the builder spec's "mix -> sdr"):
+    `edl.expected_transfer` returns "hlg" when the HLG segments carry at least half of the EDL's
+    duration (the Canon SDR reveal, a few seconds, is mapped INTO the HLG container with the zscale
+    bt709->bt2020/arib-std-b67 chain: SDR content shown correctly inside HLG, no fake HDR), and
+    "sdr" only when SDR sources carry the majority (then HLG segs are tonemapped). All-HLG -> hlg,
+    all-SDR -> sdr, `export.transfer` + `forced: true` still overrides. Reason strings must say which
+    rule fired. Why: his explicit instruction is "2K HDR in the original format"; tonemapping 90% of
+    a reel to keep a 3 s reveal untouched inverts that preference. Update tools/edl.py, its tests,
+    tools/render_story.py (uses the decision), SPEC.md and START_HERE.md section 6A/14 to match.
+17. End-to-end dry run `tools/tests/test_e2e_daily.py` (module-scoped fixtures, under 3 minutes):
+    synthetic reels_history.csv -> `reels_analysis import` -> `slot_planner`/`deliver plan` at
+    06:40 ET -> an EDL over 3 fixture clips (HLG + HLG + Canon rotated, tags that satisfy G4) ->
+    `edl refine` with the stub transcript -> `render_story` preview and master via encode.py ->
+    `gates` PASS -> `deliver` A and B (B = render_broll from 9 fixture shots) -> POST_THIS.txt
+    checked line by line (order, exact tail, TikTok line, labels, shoot card) -> Drive mirror ->
+    second `deliver` refused (cap) -> `hold` round trip -> `clean_cache` leaves post/ untouched.
+    This is E6 of the burn-in exit criteria, run here before the kit ships.

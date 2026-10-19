@@ -83,6 +83,44 @@ def test_upsert_refuses_bad_header_and_empty_key(engine_root):
         L.upsert("pieces", ["nope"], {"piece": "x"})
 
 
+def test_append_refuses_non_canonical_header_and_leaves_file_unchanged(engine_root):
+    p = L.path("hooks")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    before = "hook,status,used_on\nold hook,burned,2026-10-01\n"
+    p.write_text(before, encoding="utf-8")
+    with pytest.raises(L.LedgerError, match="run migrate first"):
+        L.append("hooks", {"hook": "new hook", "status": "ok", "used_on": "2026-10-18"})
+    assert p.read_text(encoding="utf-8") == before
+    # after migrate the append goes through and reads back aligned
+    L.migrate_file("hooks", write=True)
+    L.append("hooks", {"hook": "new hook", "status": "ok", "used_on": "2026-10-18"})
+    rows = {r["hook"]: r for r in L.read("hooks")}
+    assert rows["new hook"]["status"] == "ok" and rows["new hook"]["used_on"] == "2026-10-18"
+    assert rows["old hook"]["status"] == "burned"
+    assert L.burned_hooks() == ["old hook"]
+
+
+def test_bom_prefixed_ledger_is_read_validated_and_migrated(engine_root):
+    p = L.path("hooks")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    body = ",".join(L.HEADERS["hooks"]) + "\nBurned one,story,2026-10-01,,900,burned\nFine one,,,,,ok\n"
+    p.write_bytes(b"\xef\xbb\xbf" + body.encode("utf-8"))
+    assert L.validate("hooks") == []
+    rows = L.read("hooks")
+    assert all(not k.startswith("\ufeff") for r in rows for k in r)
+    assert rows[0]["hook"] == "Burned one"
+    assert L.burned_hooks() == ["Burned one"]
+    # upsert and append accept the file (header is canonical once the BOM is ignored)
+    L.append("hooks", {"hook": "Third", "status": "retired"})
+    r = L.upsert("hooks", ["hook"], {"hook": "Fine one", "status": "losing_type"})
+    assert r["status"] == "losing_type"
+    assert sorted(L.burned_hooks()) == ["Burned one", "Fine one", "Third"]
+    res = L.migrate_file("hooks")
+    assert res["unmapped"] == 0 and res["header_before"] == L.HEADERS["hooks"]
+    # the rewrite dropped the BOM
+    assert not p.read_bytes().startswith(b"\xef\xbb\xbf")
+
+
 # --------------------------------------------------------------------------- validate
 def test_validate_good_rows(engine_root):
     L.ensure_all()
@@ -208,6 +246,28 @@ def test_session_helpers(engine_root):
     assert L.sessions_get("AKIRA")["status"] == "active"
 
 
+def test_session_rest_fails_closed_on_bad_or_missing_rest_until(engine_root):
+    L.ensure_all()
+    L.append("sessions", {"session": "Typo", "rest_until": "10/30/2026", "status": "resting"})
+    L.append("sessions", {"session": "Typo2", "rest_until": "soon", "status": "active"})
+    L.append("sessions", {"session": "RestingNoDate", "rest_until": "", "status": "resting"})
+    L.append("sessions", {"session": "ActiveNoDate", "rest_until": "", "status": "active"})
+    L.append("sessions", {"session": "RestingPast", "rest_until": "2026-10-01", "status": "resting"})
+    today = date(2026, 10, 18)
+    # an unparsable rest_until never un-rests a session, whatever the status says
+    assert L.sessions_rest_ok("Typo", today) is False
+    assert L.sessions_available("Typo", today) is False
+    assert L.sessions_rest_ok("Typo2", today) is False
+    assert L.sessions_available("Typo2", today) is False
+    # status=resting with no date stays resting; only validate() + a fix lets it out
+    assert L.sessions_rest_ok("RestingNoDate", today) is True      # no date = not resting by date
+    assert L.sessions_available("RestingNoDate", today) is False   # but the status says resting
+    assert L.sessions_available("ActiveNoDate", today) is True
+    # a dated rest that has passed is available even when the status was never flipped
+    assert L.sessions_available("RestingPast", today) is True
+    assert any("rest_until='10/30/2026'" in e for e in L.validate("sessions"))
+
+
 def test_piece_helpers(engine_root):
     L.ensure_all()
     L.append("pieces", {"piece": "Mudvayne", "hours": "10", "color": "no"})
@@ -252,3 +312,17 @@ def test_cli(engine_root, capsys):
     assert capsys.readouterr().out.splitlines()[0] == ",".join(L.HEADERS["hooks"])
     assert L.main(["--json", "migrate", "hooks"]) == 0
     assert json.loads(capsys.readouterr().out)["written"] is False
+    # the spec'd order: subcommand first, --json after it
+    assert L.main(["show", "hooks", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)[0]["hook"] == "x"
+    assert L.main(["validate", "--json"]) == 1
+    res = json.loads(capsys.readouterr().out)
+    assert set(res) == set(L.NAMES) and res["hooks"]
+    assert L.main(["validate", "hooks", "--json"]) == 1
+    assert list(json.loads(capsys.readouterr().out)) == ["hooks"]
+    assert L.main(["ensure", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["created"] == []
+    assert L.main(["migrate", "hooks", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["written"] is False
+    with pytest.raises(SystemExit):
+        L.main(["show", "hooks", "--bogus"])

@@ -8,8 +8,9 @@ a question aimed at the viewer ("Was it worth the 50 hours?", "Would u tap on th
 
 What it checks for one hook (``check``):
 - length <= config.HOOK_MAX_CHARS (55);
-- fuzzy similarity to every burned hook (hooks.csv) and every used caption
-  (captions_used.csv) stays below config.HOOK_FUZZY_MATCH (0.85);
+- fuzzy similarity to every used hook (all rows of hooks.csv plus hook1/hook2 of delivered
+  reels in deliveries.csv, see ``used_hooks``) and to every used caption BODY
+  (captions_used.csv with config.CAPTION_TAIL stripped) stays below config.HOOK_FUZZY_MATCH (0.85);
 - no losing type (LOSING_TYPES, each with the W5 evidence);
 - at least one of: a number, a stake word, an address to the viewer;
 - when frame-1 tags are given: a hook keyword must map to a tag that is really in frame 1;
@@ -54,14 +55,33 @@ _NUMBER_RE = re.compile(r"\d(?:[\d,.]*\d)?")
 _WS_RE = re.compile(r"\s+")
 _TOKEN_RE = re.compile(r"[\w#$']+")
 
+# Word numbers count as numbers ("Two sessions, one sleeve"). "one" is a pronoun far more often
+# than a count ("which one", "one of these"), so it only converts right before a unit word.
+_WORD_NUMS = {"two": "2", "three": "3", "four": "4", "five": "5", "six": "6", "seven": "7",
+              "eight": "8", "nine": "9", "ten": "10", "eleven": "11", "twelve": "12"}
+_WORD_NUM_RE = re.compile(r"\b(" + "|".join(_WORD_NUMS) + r")\b")
+_UNIT_WORDS = r"(?:hours?|hrs?|sessions?|sittings?|days?|months?|years?|minutes?|mins?)"
+_ONE_UNIT_RE = re.compile(r"\bone(?=\s*-?\s*" + _UNIT_WORDS + r"\b)")
+
 
 def _light(text: str) -> str:
-    """NFKC + casefold + unified quotes/dashes + collapsed whitespace. Digits and symbols
-    are kept, so the losing-type patterns ($, 1,200, 1-10) can still see them."""
+    """NFKC + casefold + unified quotes/dashes + collapsed whitespace + word numbers as digits.
+    Digits and symbols are kept, so the losing-type patterns ($, 1,200, 1-10) can still see them."""
     t = unicodedata.normalize("NFKC", text or "")
     t = t.translate(_QUOTE_TABLE)
     t = t.casefold()
+    t = _WORD_NUM_RE.sub(lambda m: _WORD_NUMS[m.group(1)], t)
+    t = _ONE_UNIT_RE.sub("1", t)
     return _WS_RE.sub(" ", t).strip()
+
+
+def caption_body(caption: str) -> str:
+    """The caption without config.CAPTION_TAIL. Every used caption ends with the same booking
+    line, so its tokens (tattoo, text, books, fast, art, ...) would otherwise land in every
+    token-set intersection and push unrelated viewer-question hooks over HOOK_FUZZY_MATCH."""
+    c = caption or ""
+    i = c.rfind(config.CAPTION_TAIL)
+    return c[:i].strip() if i >= 0 else c.strip()
 
 
 def normalize(text: str) -> str:
@@ -101,8 +121,9 @@ def token_set_ratio(a: str, b: str) -> float:
 
 
 def similarity(a: str, b: str) -> float:
-    """max(SequenceMatcher ratio, token-set ratio) on the normalised strings."""
-    na, nb = normalize(a), normalize(b)
+    """max(SequenceMatcher ratio, token-set ratio) on the normalised strings. A caption tail
+    (config.CAPTION_TAIL) on either side is ignored: only the caption body is compared."""
+    na, nb = normalize(caption_body(a)), normalize(caption_body(b))
     if not na and not nb:
         return 1.0
     if not na or not nb:
@@ -115,7 +136,8 @@ def similarity(a: str, b: str) -> float:
 # (name, compiled regex on the light-normalised hook, evidence quoting WEAK_POINTS W5)
 LOSING_TYPES: list[tuple[str, re.Pattern, str]] = [
     ("price",
-     re.compile(r"\$|\bprice\b|\bcosts?\b|\b1,?200\b|\bday rate\b|what\s+\$.*gets you"),
+     re.compile(r"\$|\bprice\b|\bcosts?\b|\b1,?200\b|\bday rate\b|what\s+\$.*gets you|"
+                r"\bpaid\b|\bcharged?\b"),
      'W5: "Best $1,200 you\'ll ever spend": used Oct 7. The $-hook on a frame-1 short was '
      'retired 10/9. "This is what $1,200 a day gets you": a $-hook. Skill section 7: no price hooks.'),
     ("which-one",
@@ -138,15 +160,17 @@ LOSING_TYPES: list[tuple[str, re.Pattern, str]] = [
 _NUMBER_ONLY_EXEMPT = {"reaction-bait"}   # these types are fine when the hook carries a number
 
 _STAKES_RE = re.compile(
+    r"\d+\s*-?\s*(?:hours?|hrs?|sessions?)\b|"
     r"\b(hours?|hrs?|sessions?|drove|miles|flew|years|first tattoo|scared|pain|hurt|sit|worth|"
     r"healed|months|days)\b|\d+\s*am\b|all night")
 _VIEWER_RE = re.compile(r"\byou\b|\byour\b|\byou'?re\b|would you|could you|\btap\b|\bu\b")
-_HOURS_CLAIM_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(hours?|hrs?|sessions?)\b")
+_HOURS_CLAIM_RE = re.compile(r"(\d+(?:\.\d+)?)\s*-?\s*(hours?|hrs?|sessions?)\b")
 _NUM_RE = re.compile(r"\d+(?:\.\d+)?")
 
 # hook keyword -> frame-1 tags that satisfy it (EDL TAGS vocabulary)
 FRAME1_KEYWORDS: list[tuple[re.Pattern, tuple[str, ...]]] = [
-    (re.compile(r"\bhours?\b|\bhrs?\b|\bsessions?\b"), ("hours", "stakes")),
+    (re.compile(r"\d\s*-?\s*(?:hours?|hrs?|sessions?)\b|\bhours?\b|\bhrs?\b|\bsessions?\b"),
+     ("hours", "stakes")),
     (re.compile(r"\bdesign\b|\bstencil\b|\bprint\b"), ("design", "stencil")),
     (re.compile(r"\bhealed\b"), ("healed",)),
     (re.compile(r"\bfirst tattoo\b"), ("first-tattoo",)),
@@ -292,9 +316,14 @@ def check(hook: str, burned: Sequence[str], captions: Sequence[str],
             reasons.append(f"hook promises {sorted(required)} but frame 1 shows "
                            f"{sorted(present) or 'nothing tagged'}")
 
-    if pieces_hours is not None:
-        claims = hours_claims(hook)
-        if claims:
+    claims = hours_claims(hook)
+    if claims:
+        shown_claims = ", ".join(str(int(c) if c.is_integer() else c) for c in claims)
+        if pieces_hours is None:
+            # START_HERE 3.8: never claim hours that are not in pieces.csv. Without the ledger
+            # the claim cannot be verified; say so instead of passing silently.
+            notes.append(f"hours claim ({shown_claims}) not verified: no pieces.csv hours given")
+        else:
             known = known_hour_values(pieces_hours)
             missing = [c for c in claims if c not in known]
             if missing:
@@ -365,24 +394,63 @@ def _ledger_rows(name: str, csv_path: Path | None = None) -> list[dict]:
     return safeio.read_csv(config.LEDGERS / f"{name}.csv")
 
 
-def burned_hooks(csv_path: Path | None = None) -> list[str]:
-    """Every hook already used (any status: burned, retired, losing_type, ok)."""
+# deliveries.csv rows whose hooks never reached post/<date>/ (or may still be promoted from
+# hold/, where the reel must not be blocked by its own hooks).
+DELIVERY_HOOKS_SKIPPED = ("held", "planned", "dryrun", "cancelled", "refused")
+
+
+def delivered_hooks(csv_path: Path | None = None) -> list[str]:
+    """hook1/hook2 of every deliveries.csv row that went out (status not in
+    DELIVERY_HOOKS_SKIPPED), so yesterday's delivered-but-not-yet-promoted hook is blocked too."""
+    rows = _ledger_rows("deliveries", csv_path)
+    out: list[str] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if (r.get("status") or "").strip().lower() in DELIVERY_HOOKS_SKIPPED:
+            continue
+        for key in ("hook1", "hook2"):
+            h = (r.get(key) or "").strip()
+            if h:
+                out.append(h)
+    return out
+
+
+def used_hooks(csv_path: Path | None = None, deliveries_csv: Path | None = None,
+               include_deliveries: bool = True) -> list[str]:
+    """Every hook already used: ALL rows of hooks.csv, any status (burned, retired,
+    losing_type, ok), per START_HERE 3.6 / G10 ("every hook already used"), plus the hooks of
+    delivered reels from deliveries.csv. This differs from tools.ledgers.burned_hooks(), which
+    keeps only the burned/retired/losing_type statuses: the gate blocks re-use of any hook."""
     rows = _ledger_rows("hooks", csv_path)
-    out = []
+    out: list[str] = []
     for r in rows:
         h = r.get("hook", "") if isinstance(r, dict) else str(r)
         if h and h.strip():
             out.append(h.strip())
+    if include_deliveries and csv_path is None:
+        seen = {normalize(h) for h in out}
+        for h in delivered_hooks(deliveries_csv):
+            if normalize(h) not in seen:
+                seen.add(normalize(h))
+                out.append(h)
     return out
 
 
+def burned_hooks(csv_path: Path | None = None) -> list[str]:
+    """Alias of used_hooks() kept for gates.py and deliver.py: all rows, any status (G10)."""
+    return used_hooks(csv_path)
+
+
 def used_captions(csv_path: Path | None = None) -> list[str]:
+    """Caption BODIES from captions_used.csv (config.CAPTION_TAIL stripped, see caption_body)."""
     rows = _ledger_rows("captions_used", csv_path)
     out = []
     for r in rows:
         c = r.get("caption", "") if isinstance(r, dict) else str(r)
-        if c and c.strip():
-            out.append(c.strip())
+        body = caption_body(c) if c else ""
+        if body:
+            out.append(body)
     return out
 
 
@@ -453,13 +521,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stderr.write("at most two hooks per reel\n")
         return 1
 
+    notes: list[str] = []
     if args.no_ledgers:
-        burned, captions, pieces_rows = [], [], []
+        burned, captions = [], []
+        pieces_hours = None          # check() notes an unverifiable hours claim
+        notes.append("--no-ledgers: hours claims and burned hooks not verified")
     else:
-        burned = burned_hooks(args.hooks_csv)
+        burned = used_hooks(args.hooks_csv)
         captions = used_captions(args.captions_csv)
+        pieces_path = args.pieces_csv or (config.LEDGERS / "pieces.csv")
         pieces_rows = _ledger_rows("pieces", args.pieces_csv)
-    pieces_hours = pieces_hours_from_rows(pieces_rows, edl_pieces) if pieces_rows else None
+        # {} (never None) once ledgers were read: an hours claim with no known value FAILS
+        # (START_HERE 3.8), instead of passing silently on a fresh engine.
+        pieces_hours = pieces_hours_from_rows(pieces_rows, edl_pieces)
+        if not pieces_path.exists():
+            notes.append(f"pieces.csv missing ({pieces_path}): any hours claim fails until it exists")
+        elif not pieces_hours:
+            notes.append("pieces.csv has no row with known hours"
+                         + (f" for {edl_pieces}" if edl_pieces else "") + "; any hours claim fails")
 
     if len(hooks) == 2:
         result = check_pair(hooks[0], hooks[1], burned, captions, frame1_tags, pieces_hours)
@@ -479,10 +558,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     result["caption_tail_ok"] = tail_ok
     result["burned_count"] = len(burned)
     result["captions_count"] = len(captions)
+    result["notes"] = notes
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
+        for n in notes:
+            print(f"note: {n}")
         for r in per:
             state = "PASS" if r["ok"] else "FAIL"
             why = ("; ".join(r["reasons"]) if r["reasons"] else "; ".join(r["notes"]))

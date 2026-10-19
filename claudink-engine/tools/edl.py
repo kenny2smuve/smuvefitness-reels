@@ -14,8 +14,13 @@ transcript-driven refinements every story cut needs before rendering:
 Why a module of its own: gates.py, render_story.py, render_broll.py, hook_gate.py and
 deliver.py all read EDLs; one validator means one definition of "valid".
 
+Export transfer: expected_transfer() decides hlg|sdr and records export {transfer,
+transfer_decided, reason}. To FORCE a transfer an EDL author writes export {"transfer": "hlg",
+"forced": true} (render_story --transfer hlg|sdr sets the same); a bare export.transfer is only
+the record of an earlier render and is decided again on the next render.
+
 Library functions return data and never print. All writes go through tools.safeio.
-CLI: py -m tools.edl validate x.json | refine x.json --transcript words.json --out y.json
+CLI: py -m tools.edl validate x.json | refine x.json --transcript words.json --out y.json [--jumpcut]
      | timeline x.json [--json]
 """
 from __future__ import annotations
@@ -262,6 +267,11 @@ def validate(edl: EDL) -> list[str]:
         t = edl.export.get("transfer")
         if t not in (None, "auto", "hlg", "sdr"):
             errs.append(f"export.transfer must be auto|hlg|sdr, got {t!r}")
+        f = edl.export.get("forced")
+        if f is not None and not isinstance(f, bool):
+            errs.append("export.forced must be true or false")
+        if f is True and t not in ("hlg", "sdr"):
+            errs.append("export.forced needs export.transfer hlg|sdr")
     return errs
 
 
@@ -290,21 +300,35 @@ def _is_hlg(info) -> bool:
     return str(info or "").lower() in HLG_TRANSFERS
 
 
+def forced_transfer(export: dict | None) -> str | None:
+    """"hlg" | "sdr" when the EDL author (or --transfer) explicitly forced the export transfer:
+    export.transfer is honoured as a force ONLY together with export.forced == true. Without the
+    flag, export.transfer is just the recorded decision of an earlier render (render_story writes
+    it into the .edl.json sidecar) and the policy decides again on re-render."""
+    ex = export or {}
+    t = ex.get("transfer")
+    if ex.get("forced") is True and t in ("hlg", "sdr"):
+        return t
+    return None
+
+
 def expected_transfer(edl: EDL, probe: Callable[[str], dict] | dict) -> str:
-    """Decide "hlg" or "sdr" for the export and record {transfer, reason} in edl.export.
+    """Decide "hlg" or "sdr" for the export and record it in edl.export
+    {transfer, transfer_decided, reason}.
 
     probe: callable(clip) -> ffprobe-style dict (with is_hlg or transfer), or a {clip: dict} map.
     Policy: all sources HLG -> hlg; all SDR -> sdr; a mix -> sdr (the Canon reveal forces an
-    SDR export; HLG segments are tonemapped with the standard chain) unless edl.export.transfer
-    forces "hlg" (then SDR segments are converted to HLG with zscale). A forced value in
-    edl.export.transfer always wins.
+    SDR export; HLG segments are tonemapped with the standard chain) unless the author forced
+    "hlg" with export {transfer: "hlg", forced: true} (then SDR segments are converted to HLG with
+    zscale). The decision is separate from the override: `transfer` and `transfer_decided` carry
+    the decided value, and only `forced: true` makes `transfer` an input on the next render.
     """
-    forced = (edl.export or {}).get("transfer")
+    forced = forced_transfer(edl.export)
     lookup = (lambda c: probe.get(c) or probe.get(Path(c).name) or {}) if isinstance(probe, dict) else probe
     flags = {s.clip: _is_hlg(lookup(s.clip)) for s in edl.segs}
     n_hlg = sum(1 for v in flags.values() if v)
     n_sdr = len(flags) - n_hlg
-    if forced in ("hlg", "sdr"):
+    if forced is not None:
         t, reason = forced, f"forced by export.transfer ({n_hlg} HLG, {n_sdr} SDR sources)"
     elif n_sdr == 0 and n_hlg > 0:
         t, reason = "hlg", "every source is HLG: HLG stays HLG (Main10, bt2020, arib-std-b67)"
@@ -315,7 +339,10 @@ def expected_transfer(edl: EDL, probe: Callable[[str], dict] | dict) -> str:
         why = "the Canon reveal is SDR" if c_sdr else f"{n_sdr} SDR source(s)"
         t, reason = "sdr", f"mixed sources: {why}, so the export is SDR and {n_hlg} HLG source(s) are tonemapped"
     edl.export["transfer"] = t
+    edl.export["transfer_decided"] = t
     edl.export["reason"] = reason
+    if forced is not None:
+        edl.export["forced"] = True
     return t
 
 
@@ -384,6 +411,16 @@ def refine_outpoints(edl: EDL, provider, audio_energy: Callable | None = None) -
        stopping 0.03 s before the next word.
     4. in: if a word is sounding at in, move back to its onset (max config.IN_ONSET_MAX_S);
        never for the first segment of the reel (no dead lead-in on the opener).
+    Guards (reviewer findings, Oct 18):
+    - Only words INSIDE the segment count for step 1. A segment with no transcribed word is left
+      untouched and marked extra["refined"]["skipped"] = "no words in segment" (whisper may have
+      missed the line: run VAD and non-VAD before deciding a line does not exist), instead of
+      collapsing onto a word that ended before the in-point.
+    - The editor's out is only pulled EARLIER when the dead air after the last word exceeds
+      config.JUMPCUT_SILENCE_S; a shorter pause (a reaction, a laugh) is kept and only extended.
+    - Two consecutive segments on the same clip never overlap: this segment's out is capped at
+      the next segment's original in, and its in never moves before the previous segment's
+      refined out (the same words must not play twice across a jump cut).
     The original in/out are kept in seg.extra["refined"].
     """
     energy = audio_energy or ffmpeg_voice_energy
@@ -392,23 +429,38 @@ def refine_outpoints(edl: EDL, provider, audio_energy: Callable | None = None) -
         if seg.kind != "I":
             new_segs.append(seg.copy())
             continue
+        prev = new_segs[idx - 1] if idx > 0 else None                    # already refined
+        nxt_seg = edl.segs[idx + 1] if idx + 1 < len(edl.segs) else None  # original
+        same_prev = prev is not None and _same_clip(prev.clip, seg.clip)
+        same_next = (nxt_seg is not None and _same_clip(nxt_seg.clip, seg.clip)
+                     and nxt_seg.in_ >= seg.out - 1e-6)
         words = sorted(provider.words(Path(seg.clip), seg.in_ - 1.0, seg.out + 1.8, vad=False),
                        key=lambda w: (w.start, w.end))
+        extra = dict(seg.extra)
+        inside = [w for w in words if w.start < seg.out and w.end > seg.in_]
+        if not inside:
+            extra["refined"] = {"in": round(seg.in_, 3), "out": round(seg.out, 3),
+                                "skipped": "no words in segment"}
+            new_segs.append(seg.copy(extra=extra))
+            continue
         new_in, new_out = seg.in_, seg.out
-        # 1 + 2: last word before out, then finish the sentence
-        before = [w for w in words if w.start < seg.out]
-        if before:
-            last = before[-1]
-            li = words.index(last)
-            new_out = last.end + config.OUT_PAD_S
-            cap = new_out + config.OUT_SENTENCE_MAX_S
-            cur = last
-            while not _ends_sentence(cur.text) and li + 1 < len(words):
-                nxt = words[li + 1]
-                if nxt.start - cur.end > SENTENCE_GAP_S or nxt.end + config.OUT_PAD_S > cap:
-                    break
-                new_out = nxt.end + config.OUT_PAD_S
-                cur, li = nxt, li + 1
+        # 1 + 2: last word inside the segment, then finish the sentence
+        last = inside[-1]
+        li = words.index(last)
+        spoken_out = last.end + config.OUT_PAD_S
+        cap = spoken_out + config.OUT_SENTENCE_MAX_S
+        cur = last
+        while not _ends_sentence(cur.text) and li + 1 < len(words):
+            nxt = words[li + 1]
+            if nxt.start - cur.end > SENTENCE_GAP_S or nxt.end + config.OUT_PAD_S > cap:
+                break
+            spoken_out = nxt.end + config.OUT_PAD_S
+            cur, li = nxt, li + 1
+        dead_air = seg.out - (spoken_out - config.OUT_PAD_S)
+        if spoken_out >= seg.out or dead_air > config.JUMPCUT_SILENCE_S:
+            new_out = spoken_out            # land in the pause (or pull a long silence back)
+        else:
+            new_out = seg.out               # the editor's short pause is kept; only extend
         new_out = max(new_out, seg.in_ + 0.1)
         # 3: follow the voice energy
         next_words = [w for w in words if w.start >= new_out - 1e-6]
@@ -433,15 +485,25 @@ def refine_outpoints(edl: EDL, provider, audio_energy: Callable | None = None) -
                     else:
                         break
                 new_out = min(max(new_out, t_ext), limit)
+        # never run into the next segment of the same clip (its words would play twice)
+        if same_next and nxt_seg.in_ > seg.in_ + 0.1:
+            new_out = min(new_out, nxt_seg.in_)
         # 4: in-point onto the word onset
         if idx > 0:
             on = [w for w in words if w.start < seg.in_ < w.end]
             if on:
                 new_in = max(on[0].start, seg.in_ - config.IN_ONSET_MAX_S, 0.0)
-        extra = dict(seg.extra)
+            if same_prev and prev.out > new_in:
+                new_in = max(new_in, prev.out)
+                if new_out - new_in < 0.1:
+                    new_in = seg.in_
         extra["refined"] = {"in": round(seg.in_, 3), "out": round(seg.out, 3)}
         new_segs.append(seg.copy(in_=round(new_in, 3), out=round(new_out, 3), extra=extra))
     return edl.copy(segs=new_segs)
+
+
+def _same_clip(a: str, b: str) -> bool:
+    return a == b or Path(a).resolve(strict=False) == Path(b).resolve(strict=False)
 
 
 def jumpcut_silences(edl: EDL, provider) -> EDL:
@@ -526,7 +588,10 @@ def _real_provider():
     except ImportError as e:
         raise RuntimeError("no --transcript given and tools.transcribe is not available "
                            f"({e}); pass --transcript words.json") from e
-    for name in ("TranscriptProvider", "Transcriber", "WhisperTranscript", "Provider"):
+    factory = getattr(transcribe, "provider", None)
+    if callable(factory):
+        return factory()
+    for name in ("FasterWhisperTranscript", "TranscriptProvider", "Transcriber", "WhisperTranscript", "Provider"):
         cls = getattr(transcribe, name, None)
         if cls is not None:
             return cls()
@@ -551,7 +616,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     t.add_argument("edl")
     t.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
+    try:
+        return _run(args)
+    except (OSError, ValueError, RuntimeError, safeio.SafeIOError) as e:
+        # json.JSONDecodeError is a ValueError; FileNotFoundError is an OSError
+        print(f"error: {e}")
+        return 1
 
+
+def _run(args) -> int:
     if args.cmd == "validate":
         edl = load(args.edl, strict=False)
         errs = validate(edl)
@@ -578,29 +651,31 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.cmd == "refine":
         edl = load(args.edl)
-        try:
-            provider = JsonWordsProvider.from_file(args.transcript) if args.transcript else _real_provider()
-        except RuntimeError as e:
-            print(f"error: {e}")
-            return 1
-        refined = refine_outpoints(edl, provider)
-        if args.jumpcut:
-            refined = jumpcut_silences(refined, provider)
+        provider = JsonWordsProvider.from_file(args.transcript) if args.transcript else _real_provider()
+        # jump cuts first, so every resulting part's out-point gets the pause/energy treatment
+        refined = jumpcut_silences(edl, provider) if args.jumpcut else edl
+        refined = refine_outpoints(refined, provider)
         errs = validate(refined)
         if errs:
             print("refined EDL is invalid: " + "; ".join(errs))
             return 1
         save(refined, args.out)
         changes = []
-        for a, b in zip(edl.segs, refined.segs):
-            if (a.in_, a.out) != (b.in_, b.out):
-                changes.append({"clip": Path(a.clip).name, "in": [a.in_, b.in_], "out": [a.out, b.out]})
+        skipped = []
+        for b in refined.segs:
+            r = (b.extra or {}).get("refined") or {}
+            if r.get("skipped"):
+                skipped.append({"clip": Path(b.clip).name, "in": b.in_, "out": b.out, "why": r["skipped"]})
+            elif r and (r.get("in"), r.get("out")) != (b.in_, b.out):
+                changes.append({"clip": Path(b.clip).name, "in": [r["in"], b.in_], "out": [r["out"], b.out]})
         if args.json:
             print(json.dumps({"in": args.edl, "out": args.out, "segs": len(refined.segs),
-                              "duration": duration(refined), "changed": changes}, indent=2))
+                              "duration": duration(refined), "changed": changes, "skipped": skipped}, indent=2))
         else:
             print(f"refined {args.edl} -> {args.out}: {len(refined.segs)} segs, {duration(refined)} s, "
-                  f"{len(changes)} boundary change(s)")
+                  f"{len(changes)} boundary change(s), {len(skipped)} segment(s) without words")
+            for s in skipped:
+                print(f"  ! {s['clip']} {s['in']:.2f}-{s['out']:.2f}: {s['why']} (check VAD and non-VAD passes)")
         return 0
     return 1
 

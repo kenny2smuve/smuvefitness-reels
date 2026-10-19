@@ -9,15 +9,18 @@ Checks: ffmpeg/ffprobe run and their versions; hevc_nvenc (warn -> libx265 fallb
 least one HEVC encoder (blocker); zscale + tonemap filters (blocker); libplacebo (info);
 Python >= 3.12; the optional packages (warn each, with the pip command); free disk on the
 engine root drive >= 30 GB; FOOTAGE_ROOT/"Shop shorts" listable; METRICS_CSV readable and its
-freshness in hours (warn > 26 h); the PC clock zone against America/New_York; knowledge/RULES.md;
+freshness in hours (warn when neither the newest snapshot-like column nor the file mtime is
+within 26 h; the media "timestamp" column is only a fallback since it is the publish time of
+his last reel, not of the pull); the PC clock zone against America/New_York; knowledge/RULES.md;
 which ledgers exist (reported only, never created here); templates/broll_station_first.json and
 whether it still carries a PLACEHOLDER key; state/engine.lock and its age;
-state/render_profile.json and its age; and a write test in cache/ through safeio.
+state/render_profile.json and its age (re-benched here when missing or older than 30 days,
+SPEC "Render speed" 9; --no-bench skips that); and a write test in cache/ through safeio.
 
 Why: every failure here used to surface halfway through a render at 06:40. Fix what can be
 fixed, log the rest, and continue (START_HERE 3.1).
 
-Run:  py -m tools.preflight [--json] [--no-write] [--bench]
+Run:  py -m tools.preflight [--json] [--no-write] [--no-bench]
 """
 from __future__ import annotations
 
@@ -48,7 +51,12 @@ PACKAGES: list[tuple[str, str]] = [        # (import name, pip name)
 ]
 PIP_HINT = "py -m pip install --user " + " ".join(p for _, p in PACKAGES)
 TEMPLATE_NAME = "broll_station_first.json"
-_TS_COL_WORDS = ("timestamp", "time", "date", "pulled", "snapshot", "fetched", "updated", "taken")
+# Columns that say WHEN THE ROW WAS PULLED (the cloud task's snapshot time) come first; the
+# media "timestamp"/"date" columns (publish time of the reel) are only a fallback.
+_SNAPSHOT_COL_WORDS = ("pulled", "snapshot", "fetched", "updated", "taken", "collected", "scraped",
+                       "retrieved", "checked", "run_at", "exported")
+_FALLBACK_COL_WORDS = ("timestamp", "time", "date")
+_TS_COL_WORDS = _SNAPSHOT_COL_WORDS + _FALLBACK_COL_WORDS
 
 
 def _c(name: str, ok: bool, level: str, detail: str, **extra) -> dict:
@@ -115,7 +123,8 @@ def check_encoders() -> list[dict]:
     nvenc = "hevc_nvenc" in names
     x265 = "libx265" in names
     out = [_c("hevc_nvenc", nvenc, "warn",
-              "hevc_nvenc available (GPU encode)" if nvenc else "hevc_nvenc missing: renders fall back to libx265 (slow)")]
+              "hevc_nvenc compiled in (bench/render_profile.json confirms the driver can open a session)"
+              if nvenc else "hevc_nvenc missing: renders fall back to libx265 (slow)")]
     if nvenc or x265:
         have = " + ".join(n for n, f in (("hevc_nvenc", nvenc), ("libx265", x265)) if f)
         out.append(_c("hevc_encoder", True, "blocker", f"HEVC encoder: {have}"))
@@ -191,7 +200,10 @@ def check_shop_shorts(folder: Path | None = None) -> dict:
 
 
 # --------------------------------------------------------------------------- metrics freshness
-def _parse_ts(s: str) -> datetime | None:
+def _parse_ts(s: str, naive_tz=None) -> datetime | None:
+    """ISO-ish timestamp -> aware datetime. A value without an offset is taken as `naive_tz`:
+    UTC by default (the IG insights CSV), config.TZ for engine-written files (engine.lock,
+    render_profile.json write local ET)."""
     s = (s or "").strip()
     if not s or not re.match(r"^\d{4}-\d{2}-\d{2}", s):
         return None
@@ -204,52 +216,93 @@ def _parse_ts(s: str) -> datetime | None:
         except ValueError:
             return None
     if d.tzinfo is None:
-        d = d.replace(tzinfo=config.UTC)      # the CSV's timestamps are UTC
+        d = d.replace(tzinfo=naive_tz or config.UTC)
     return d
 
 
-def metrics_freshness(path: Path, now: datetime) -> tuple[float | None, str]:
-    """Hours since the newest timestamp-like value in the CSV, or (None, reason).
-    Falls back to the file's mtime when no column parses."""
+def _col_kind(col: str) -> str | None:
+    c = col.lower()
+    if any(w in c for w in _SNAPSHOT_COL_WORDS):
+        return "snapshot"
+    if any(w in c for w in _FALLBACK_COL_WORDS):
+        return "fallback"
+    return None
+
+
+def metrics_freshness(path: Path, now: datetime) -> dict:
+    """Freshness of the metrics CSV. Returns a dict:
+    {hours: effective age (min of the column age and the mtime age) or None,
+     hours_newest_ts: hours since the newest value of the preferred timestamp columns or None,
+     hours_mtime: hours since the file mtime or None, kind: "snapshot" | "fallback" | None,
+     columns: [...], rows: n, detail: str, error: str | None}.
+    Snapshot-like columns (pulled/snapshot/fetched/...) beat the media timestamp/date columns,
+    which only say when the reel was published."""
     p = Path(path)
+    out: dict = {"hours": None, "hours_newest_ts": None, "hours_mtime": None, "kind": None,
+                 "columns": [], "rows": 0, "detail": "", "error": None}
     try:
         with open(p, "r", encoding="utf-8", newline="", errors="replace") as f:
             r = csv.DictReader(f)
-            cols = [c for c in (r.fieldnames or []) if c and any(w in c.lower() for w in _TS_COL_WORDS)]
+            kinds = {c: _col_kind(c) for c in (r.fieldnames or []) if c}
+            snap = [c for c, k in kinds.items() if k == "snapshot"]
+            fall = [c for c, k in kinds.items() if k == "fallback"]
+            cols = snap or fall
+            out["columns"] = cols
+            out["kind"] = "snapshot" if snap else ("fallback" if fall else None)
             newest: datetime | None = None
-            rows = 0
             for row in r:
-                rows += 1
+                out["rows"] += 1
                 for c in cols:
                     d = _parse_ts(row.get(c) or "")
                     if d and (newest is None or d > newest):
                         newest = d
     except OSError as e:
-        return None, f"unreadable: {e}"
-    if newest is None:
-        try:
-            mt = datetime.fromtimestamp(p.stat().st_mtime, tz=config.TZ)
-        except OSError as e:
-            return None, f"unreadable: {e}"
-        hours = (now - mt).total_seconds() / 3600
-        return hours, f"no timestamp column parsed; file mtime {mt.isoformat(timespec='minutes')} ({rows} rows)"
-    hours = (now - newest).total_seconds() / 3600
-    return hours, f"newest timestamp {newest.astimezone(config.TZ).isoformat(timespec='minutes')} ({rows} rows, columns {', '.join(cols)})"
+        out["error"] = f"unreadable: {e}"
+        out["detail"] = out["error"]
+        return out
+    try:
+        mt = datetime.fromtimestamp(p.stat().st_mtime, tz=config.TZ)
+        out["hours_mtime"] = (now - mt).total_seconds() / 3600
+    except OSError:
+        mt = None
+    parts = []
+    if newest is not None:
+        out["hours_newest_ts"] = (now - newest).total_seconds() / 3600
+        parts.append(f"newest {out['kind']} timestamp {newest.astimezone(config.TZ).isoformat(timespec='minutes')} "
+                     f"= {out['hours_newest_ts']:.1f} h (columns {', '.join(cols)})")
+    else:
+        parts.append("no timestamp column parsed")
+    if mt is not None:
+        parts.append(f"file mtime {mt.isoformat(timespec='minutes')} = {out['hours_mtime']:.1f} h")
+    parts.append(f"{out['rows']} rows")
+    ages = [h for h in (out["hours_newest_ts"], out["hours_mtime"]) if h is not None]
+    out["hours"] = min(ages) if ages else None
+    if out["hours"] is None:
+        out["error"] = "no timestamp column parsed and mtime unreadable"
+    out["detail"] = "; ".join(parts)
+    return out
 
 
 def check_metrics(path: Path | None = None, now: datetime | None = None,
                   stale_hours: float = METRICS_STALE_HOURS) -> dict:
+    """ok when the newest snapshot-like column OR the file mtime is within stale_hours. The
+    dict also carries hours_newest_ts (for the analyst) and hours_mtime."""
     path = Path(path or config.METRICS_CSV)
     now = now or datetime.now(config.TZ)
     if not path.is_file():
         return _c("metrics_csv", False, "warn", f"{path} missing: the hourly insights task has not written it")
-    hours, why = metrics_freshness(path, now)
-    if hours is None:
-        return _c("metrics_csv", False, "warn", f"{path} {why}")
+    fr = metrics_freshness(path, now)
+    if fr["hours"] is None:
+        return _c("metrics_csv", False, "warn", f"{path} {fr['error'] or fr['detail']}")
+    hours = fr["hours"]
     ok = hours <= stale_hours
+    extra = {"hours": round(hours, 2),
+             "hours_newest_ts": None if fr["hours_newest_ts"] is None else round(fr["hours_newest_ts"], 2),
+             "hours_mtime": None if fr["hours_mtime"] is None else round(fr["hours_mtime"], 2),
+             "timestamp_kind": fr["kind"]}
     return _c("metrics_csv", ok, "warn",
-              f"{hours:.1f} h old ({why})" + ("" if ok else f": older than {stale_hours:.0f} h, is the cloud task running?"),
-              hours=round(hours, 2))
+              f"{hours:.1f} h old ({fr['detail']})" + ("" if ok else f": older than {stale_hours:.0f} h, is the cloud task running?"),
+              **extra)
 
 
 # --------------------------------------------------------------------------- clock
@@ -261,8 +314,17 @@ def clock_offset_matches(now: datetime, local_offset: timedelta | None = None) -
     expected = now.astimezone(config.TZ).utcoffset()
     local = local_offset if local_offset is not None else datetime.now().astimezone().utcoffset()
     ok = local == expected
-    fmt = lambda td: f"{'+' if td >= timedelta(0) else '-'}{abs(td.seconds // 3600 + td.days * 24):02d}:{(abs(td).seconds // 60) % 60:02d}"  # noqa: E731
-    return ok, f"PC clock {fmt(local)}, {config.TZ_NAME} {fmt(expected)}"
+    return ok, f"PC clock {_fmt_offset(local)}, {config.TZ_NAME} {_fmt_offset(expected)}"
+
+
+def _fmt_offset(td: timedelta | None) -> str:
+    """+HH:MM / -HH:MM from the total seconds (so -3h30 prints -03:30, not -04:30)."""
+    if td is None:
+        return "?"
+    secs = int(td.total_seconds())
+    sign = "+" if secs >= 0 else "-"
+    h, m = divmod(abs(secs) // 60, 60)
+    return f"{sign}{h:02d}:{m:02d}"
 
 
 def check_clock(now: datetime | None = None, local_offset: timedelta | None = None) -> dict:
@@ -338,7 +400,7 @@ def check_engine_lock(path: Path | None = None, now: datetime | None = None,
     started = None
     for k in ("start", "started", "start_time", "started_at", "time"):
         if info.get(k):
-            started = _parse_ts(str(info[k]))
+            started = _parse_ts(str(info[k]), naive_tz=config.TZ)   # engine-written: local ET
             if started:
                 break
     if started is None:
@@ -358,7 +420,7 @@ def check_render_profile(path: Path | None = None, now: datetime | None = None,
                          max_days: int = RENDER_PROFILE_MAX_DAYS) -> dict:
     p = Path(path or (config.STATE / "render_profile.json"))
     now = now or datetime.now(config.TZ)
-    hint = "run py -m tools.render_story bench (or py -m tools.preflight --bench)"
+    hint = "run py -m tools.render_story bench (preflight does it unless --no-bench)"
     if not p.is_file():
         return _c("render_profile", False, "warn", f"{p} missing: {hint}")
     try:
@@ -366,9 +428,9 @@ def check_render_profile(path: Path | None = None, now: datetime | None = None,
     except (OSError, ValueError) as e:
         return _c("render_profile", False, "warn", f"{p} unreadable: {e}; {hint}")
     written = None
-    for k in ("generated_et", "generated", "written", "bench_time", "time"):
+    for k in ("measured_at", "generated_et", "generated", "written", "bench_time", "time"):
         if isinstance(obj, dict) and obj.get(k):
-            written = _parse_ts(str(obj[k]))
+            written = _parse_ts(str(obj[k]), naive_tz=config.TZ)   # encode.bench writes naive local ET
             if written:
                 break
     if written is None:
@@ -396,14 +458,23 @@ def check_cache_write(cache: Path | None = None) -> dict:
 
 
 # --------------------------------------------------------------------------- bench (optional)
+def _chosen_of(res) -> str:
+    """render_story.bench() returns an encode.Profile (attribute .chosen); tolerate a dict."""
+    chosen = getattr(res, "chosen", None)
+    if not chosen and isinstance(res, dict):
+        chosen = res.get("chosen")
+    return str(chosen) if chosen else "?"
+
+
 def maybe_bench(now: datetime) -> dict:
-    """Run tools.render_story bench when the profile is missing/stale. Lazy import: the module
-    belongs to another builder and may be absent."""
+    """Run tools.render_story bench when the profile is missing/stale (SPEC "Render speed" 9).
+    Lazy import: the module belongs to another builder and may be absent."""
     prof = check_render_profile(now=now)
     if prof["ok"]:
         return _c("bench", True, "info", "render profile fresh, bench skipped")
     try:
-        from . import render_story  # noqa: WPS433
+        # relative import through importlib so sys.modules is the single source (tests stub it)
+        render_story = importlib.import_module(".render_story", __package__)
     except ImportError as e:
         return _c("bench", False, "warn", f"tools.render_story not available ({e}); profile not refreshed")
     fn = getattr(render_story, "bench", None)
@@ -413,12 +484,13 @@ def maybe_bench(now: datetime) -> dict:
         res = fn()
     except Exception as e:
         return _c("bench", False, "warn", f"bench failed: {type(e).__name__}: {e}")
-    chosen = res.get("chosen", "?") if isinstance(res, dict) else "?"
-    return _c("bench", True, "info", f"bench done, chosen path {chosen}")
+    return _c("bench", True, "info", f"bench done, chosen path {_chosen_of(res)}")
 
 
 # --------------------------------------------------------------------------- run / report
-def all_checks(now: datetime, *, bench: bool = False) -> list[dict]:
+def all_checks(now: datetime, *, bench: bool = True) -> list[dict]:
+    """Every check in report order. bench=True (the default) re-runs the render bench when
+    state/render_profile.json is missing or stale, BEFORE the profile is reported."""
     checks: list[dict] = []
     checks.append(check_ffmpeg())
     checks.append(check_ffprobe())
@@ -434,10 +506,10 @@ def all_checks(now: datetime, *, bench: bool = False) -> list[dict]:
     checks.append(check_ledgers())
     checks.extend(check_template())
     checks.append(check_engine_lock(now=now))
-    checks.append(check_render_profile(now=now))
-    checks.append(check_cache_write())
     if bench:
         checks.append(maybe_bench(now))
+    checks.append(check_render_profile(now=now))
+    checks.append(check_cache_write())
     return checks
 
 
@@ -471,7 +543,7 @@ def to_markdown(summary: dict) -> str:
     return "\n".join(lines)
 
 
-def run(now: datetime | None = None, *, write: bool = True, bench: bool = False,
+def run(now: datetime | None = None, *, write: bool = True, bench: bool = True,
         checks: Callable[[datetime], list[dict]] | None = None) -> dict:
     """Run every check, write state/preflight.md (overwrite allowed in state/), return the summary."""
     now = now or datetime.now(config.TZ)
@@ -490,13 +562,19 @@ def run(now: datetime | None = None, *, write: bool = True, bench: bool = False,
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # Windows console without PYTHONUTF8
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(prog="py -m tools.preflight", description=__doc__.splitlines()[0])
     ap.add_argument("--json", action="store_true", help="JSON output")
     ap.add_argument("--no-write", action="store_true", help="do not write state/preflight.md")
-    ap.add_argument("--bench", action="store_true",
-                    help="run tools.render_story bench when state/render_profile.json is missing or older than 30 days")
+    ap.add_argument("--no-bench", action="store_true",
+                    help="do not run tools.render_story bench when state/render_profile.json is missing "
+                         "or older than 30 days (the default re-benches it)")
+    ap.add_argument("--bench", action="store_true", help=argparse.SUPPRESS)   # old spelling, now the default
     a = ap.parse_args(argv)
-    summary = run(write=not a.no_write, bench=a.bench)
+    summary = run(write=not a.no_write, bench=not a.no_bench)
     if a.json:
         print(json.dumps(summary, default=str))
     else:

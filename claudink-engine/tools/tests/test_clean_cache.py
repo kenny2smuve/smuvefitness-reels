@@ -111,6 +111,81 @@ def test_refuses_folder_outside_cache(engine_root, tmp_path):
     assert res["deleted"] == 1
 
 
+def test_undeletable_file_does_not_abort_the_sweep(engine_root, monkeypatch):
+    c = config.CACHE
+    a = _touch(c / "clips" / "a.bin", days_old=10)
+    b = _touch(c / "clips" / "b.bin", days_old=10)
+    real_unlink = Path.unlink
+
+    def flaky_unlink(self, *args, **kw):
+        if self.name == "a.bin":
+            raise PermissionError(32, "The process cannot access the file because it is being used")
+        return real_unlink(self, *args, **kw)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+    res = CC.clean(now=NOW)
+    assert a.exists() and not b.exists()
+    assert res["deleted"] == 1 and res["bytes_freed"] == 10
+    assert len(res["failed"]) == 1 and res["failed"][0]["path"] == str(a)
+    assert "PermissionError" in res["failed"][0]["error"]
+    assert (c / "clips").is_dir()                       # not empty, so it stays
+    monkeypatch.setattr(Path, "unlink", real_unlink)
+    res = CC.clean(now=NOW)                             # retried on the next run
+    assert not a.exists() and res["failed"] == [] and not (c / "clips").exists()
+
+
+def test_dry_run_reports_dirs_that_would_become_empty(engine_root):
+    c = config.CACHE
+    _touch(c / "willempty" / "deep" / "old.mp4", days_old=9)
+    _touch(c / "stays" / "old.mp4", days_old=9)
+    _touch(c / "stays" / "new.mp4", days_old=1)
+    (c / "emptynow").mkdir()
+    res = CC.clean(now=NOW, dry_run=True)
+    assert res["deleted"] == 2
+    assert set(res["dirs_removed"]) == {str(c / "willempty" / "deep"), str(c / "willempty"), str(c / "emptynow")}
+    assert (c / "willempty" / "deep" / "old.mp4").exists()
+    real = CC.clean(now=NOW)
+    assert set(real["dirs_removed"]) == set(res["dirs_removed"])
+    assert not (c / "willempty").exists() and (c / "stays").is_dir() and (c / "emptynow").exists() is False
+
+
+def test_size_pass_takes_cheap_files_before_transcripts_and_panel(engine_root):
+    c = config.CACHE
+    t = _touch(c / "transcripts" / "t.json", days_old=2, size=600)
+    pn = _touch(c / "panel" / "r1" / "p.png", days_old=2.5, size=600)
+    k = _touch(c / "clips" / "k.mp4", days_old=1, size=600)
+    s = _touch(c / "segs" / "s.mp4", days_old=0.5, size=600)
+    max_gb = 1300 / 1024 ** 3                       # keep ~2 files
+    res = CC.clean(now=NOW, max_gb=max_gb)
+    assert res["deleted"] == 2
+    assert not k.exists() and not s.exists()        # cheap, oldest first
+    assert t.exists() and pn.exists()
+    # only when the cheap files are gone do the protected ones go, oldest first
+    res = CC.clean(now=NOW, max_gb=700 / 1024 ** 3)
+    assert res["deleted"] == 1 and not pn.exists() and t.exists()
+    assert CC.is_protected(Path("transcripts/x.json")) and CC.is_protected(Path("panel/r/x"))
+    assert not CC.is_protected(Path("clips/x.mp4")) and not CC.is_protected(Path("x"))
+
+
+def test_remove_cache_dir_guard(engine_root, tmp_path):
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    with pytest.raises(safeio.SafeIOError):
+        CC.remove_cache_dir(outside)
+    with pytest.raises(safeio.SafeIOError):
+        CC.remove_cache_dir(config.CACHE)
+    with pytest.raises(safeio.SafeIOError):
+        CC.remove_cache_dir(config.ENGINE_ROOT)
+    d = config.CACHE / "sub"
+    d.mkdir()
+    (d / "f").write_bytes(b"x")
+    assert CC.remove_cache_dir(d) is False and d.is_dir()      # not empty
+    (d / "f").unlink()
+    assert CC.remove_cache_dir(d) is True and not d.exists()
+    assert CC.remove_cache_dir(d) is False                     # already gone
+    assert outside.is_dir() and config.CACHE.is_dir()
+
+
 def test_plan_is_pure():
     files = [{"path": Path("/c/a"), "rel": Path("a"), "size": 5, "mtime": (NOW - timedelta(days=4)).timestamp()},
              {"path": Path("/c/b"), "rel": Path("b"), "size": 5, "mtime": (NOW - timedelta(days=1)).timestamp()}]
@@ -123,7 +198,8 @@ def test_cli(engine_root, capsys):
     assert CC.main(["--dry-run"]) == 0
     out = capsys.readouterr().out.strip().splitlines()
     assert len(out) == 1 and out[0].startswith("clean_cache: would delete 1 file(s)")
+    assert out[0].endswith("0 failed")
     assert CC.main(["--json", "--days", "3"]) == 0
     import json
     res = json.loads(capsys.readouterr().out)
-    assert res["deleted"] == 1
+    assert res["deleted"] == 1 and res["failed"] == []

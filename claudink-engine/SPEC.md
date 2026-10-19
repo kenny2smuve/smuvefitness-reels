@@ -59,6 +59,10 @@ points `CLAUDINK_ENGINE_ROOT` at a temp dir and provides fixture clips (see it).
 TAGS (lower-case strings): `greeting design stencil stakes hours pain humor needle approval reaction
 mirror camera finished station piece talking healed done consult travel first-tattoo return`.
 `order_key` must be monotonic non-decreasing across `segs`; `C` segs only after all non-C segs.
+Export transfer (`edl.export.transfer`, decided by `edl.expected_transfer`): all-HLG sources -> `hlg`;
+all-SDR -> `sdr`; a mix -> `hlg` when HLG segments carry at least half of the duration (the short Canon
+SDR reveal is mapped into the HLG container), else `sdr` (HLG segments tonemapped); `export.forced: true`
+with an explicit `transfer` overrides.
 Timeline time of seg i = sum of (out-in) of previous segs. `edl.py` provides:
 `load(path)->EDL`, `validate(edl)->list[str]` (errors), `timeline(edl)->list[(t0,t1,seg)]`,
 `duration(edl)`, `order_key_sortable(key)->(int, float|str)`, `refine_outpoints(edl, transcript_provider)`,

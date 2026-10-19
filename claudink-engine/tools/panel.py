@@ -4,9 +4,13 @@ maths and the read-only yt-dlp download plan for his own public reels.
 Why: a critic that knows which reel is a winner is not a critic. Every reel (his winners,
 medians, flops and today's candidates) becomes the same kind of packet: a 0-3 s strip at
 0.25 s steps, a contact sheet every 2 s, a time-stamped transcript and the length (plus the
-hook for candidates). The packets are then copied under neutral ids (P01..Pnn, shuffled with
-a seed) with everything identifying stripped, and the mapping from id to source is written to
-a file the critic is never given. After the critic ranks the panel, `calibration` checks that
+hook for candidates). HLG masters (arib-std-b67 / smpte2084, his Meta glasses footage) are
+tonemapped with the engine's CPU chain before the frames are tiled, so a candidate cut from an
+HLG master looks like the SDR rendition Instagram serves and cannot be told apart from the
+yt-dlp downloads of his winners by look alone. The packets are then copied under neutral ids
+(P01..Pnn, shuffled with a seed) with everything identifying stripped, and the mapping from id
+to source is written to state/panel/<round>.mapping.json, outside the round folder, so a critic
+that lists cache/panel/<round>/ never sees it. After the critic ranks the panel, `calibration` checks that
 winners rank above flops in >= config.CRITIC_PAIR_RATE_MIN of the (winner, flop) pairs, and
 `candidate_ok` says whether a shipped candidate landed in the top third with no flop call.
 
@@ -24,6 +28,7 @@ Run:  py -m tools.panel packet <video> --out <dir> [--hook "..."] [--words words
                                   [--truth truth.json]
       py -m tools.panel plan --mode burnin|daily [--out <dir>] [--already a,b]
       py -m tools.panel download --mode burnin|daily --out <dir> [--run]
+      (--json works before or after the subcommand)
 """
 from __future__ import annotations
 
@@ -57,12 +62,18 @@ STRIP_NAME = "strip_0_3s.jpg"
 SHEET_NAME = "sheet_2s.jpg"
 TRANSCRIPT_NAME = "transcript.txt"
 META_NAME = "meta.json"
-MAPPING_NAME = "_mapping.json"
+MAPPING_NAME = "_mapping.json"          # legacy location inside the round folder (read only)
+MAPPING_SUFFIX = ".mapping.json"        # state/panel/<round>.mapping.json
 NO_TRANSCRIPT = "(no transcript)"
 TRUTHS = ("winner", "median", "flop", "candidate")
 CALLS = ("breakout", "median", "flop")
-STOP_PATTERN = re.compile(r"\blogin\b|\b429\b|rate[ -]?limit|too many requests", re.IGNORECASE)
+# "HTTP Error 429" or a bare 429 token that is not part of a speed/size figure ("429.12KiB/s").
+STOP_PATTERN = re.compile(r"\blogin\b|HTTP Error 429|\b429\b(?![.\d])|rate[ -]?limit|too many requests",
+                          re.IGNORECASE)
 REEL_URL = "https://www.instagram.com/reel/{code}/"
+HLG_TRANSFERS = ("arib-std-b67", "smpte2084")
+TONEMAP_CPU_FALLBACK = ("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,"
+                        "tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
 FONT_CANDIDATES = (
     r"C:\Windows\Fonts\arial.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -74,10 +85,10 @@ FONT_CANDIDATES = (
 
 # --------------------------------------------------------------------------- probing
 def probe_video(video: Path | str) -> dict:
-    """{duration, width, height, fps} via ffprobe (zeros when a field is missing)."""
+    """{duration, width, height, fps, color_transfer} via ffprobe (zeros / '' when missing)."""
     r = safeio.run_ffprobe(["-v", "error", "-select_streams", "v:0", "-show_entries",
-                            "stream=width,height,r_frame_rate,avg_frame_rate:format=duration",
-                            "-of", "json", str(video)])
+                            "stream=width,height,r_frame_rate,avg_frame_rate,color_transfer:"
+                            "format=duration", "-of", "json", str(video)])
     try:
         d = json.loads(r.stdout or "{}")
     except ValueError:
@@ -99,7 +110,25 @@ def probe_video(video: Path | str) -> dict:
     except (TypeError, ValueError):
         duration = 0.0
     return {"duration": duration, "width": int(st.get("width") or 0),
-            "height": int(st.get("height") or 0), "fps": round(fps, 3)}
+            "height": int(st.get("height") or 0), "fps": round(fps, 3),
+            "color_transfer": str(st.get("color_transfer") or "").lower()}
+
+
+def is_hlg(transfer: str | None) -> bool:
+    return (transfer or "").lower() in HLG_TRANSFERS
+
+
+def tonemap_chain() -> str:
+    """The engine's CPU tonemap (tools.encode.TONEMAP_CPU when importable): the same chain G1
+    uses for its proxy, so a candidate's packet shows what viewers see."""
+    try:
+        from . import encode
+        chain = getattr(encode, "TONEMAP_CPU", None)
+        if isinstance(chain, str) and chain:
+            return chain
+    except ImportError:
+        pass
+    return TONEMAP_CPU_FALLBACK
 
 
 # --------------------------------------------------------------------------- ffmpeg pieces
@@ -131,9 +160,16 @@ def cell_filter(cell: tuple[int, int]) -> str:
             f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black")
 
 
-def strip_filter() -> str:
+def _tonemap_part(transfer: str | None) -> str:
+    """The tonemap step for HLG/PQ sources, placed after fps/select so only the picked frames
+    pay for it; empty for SDR."""
+    return tonemap_chain() + "," if is_hlg(transfer) else ""
+
+
+def strip_filter(transfer: str | None = None) -> str:
     """0-3 s at 4 fps -> 13 stamped frames tiled 7x2 (the last cell stays black)."""
-    return (f"fps={1 / STRIP_STEP_S:g},select=lt(n\\,{STRIP_FRAMES}),{cell_filter(STRIP_CELL)},"
+    return (f"fps={1 / STRIP_STEP_S:g},select=lt(n\\,{STRIP_FRAMES}),{_tonemap_part(transfer)}"
+            f"{cell_filter(STRIP_CELL)},"
             f"{timestamp_filter(16)},tile={STRIP_COLS}x{STRIP_ROWS}:nb_frames={STRIP_FRAMES}:"
             f"padding={TILE_PAD}:margin={TILE_PAD}:color=black")
 
@@ -144,9 +180,10 @@ def sheet_layout(duration: float, every: float) -> tuple[int, int]:
     return n, max(1, math.ceil(n / SHEET_COLS))
 
 
-def sheet_filter(duration: float, every: float) -> str:
+def sheet_filter(duration: float, every: float, transfer: str | None = None) -> str:
     n, rows = sheet_layout(duration, every)
-    return (f"fps=1/{every:g},select=lt(n\\,{n}),{cell_filter(SHEET_CELL)},{timestamp_filter(18)},"
+    return (f"fps=1/{every:g},select=lt(n\\,{n}),{_tonemap_part(transfer)}{cell_filter(SHEET_CELL)},"
+            f"{timestamp_filter(18)},"
             f"tile={SHEET_COLS}x{rows}:nb_frames={n}:padding={TILE_PAD}:margin={TILE_PAD}:color=black")
 
 
@@ -222,19 +259,24 @@ def build_packet(video: Path | str, out_dir: Path | str, transcript_provider=Non
     out_dir = safeio.mkdir(Path(out_dir))
     info = probe_video(video)
     duration = info["duration"]
+    transfer = info["color_transfer"]
+    # tools.contact_sheet has no tonemap: an HLG master always goes through this module's own
+    # chain so the packet shows the SDR picture viewers (and the critic's winner packets) see.
+    hlg = is_hlg(transfer)
 
     strip = out_dir / STRIP_NAME
-    if not _via_contact_sheet("strip", video, strip, every):
-        _render_image(video, strip_filter(), strip, read_to=STRIP_END_S + 0.3)
+    if hlg or not _via_contact_sheet("strip", video, strip, every):
+        _render_image(video, strip_filter(transfer), strip, read_to=STRIP_END_S + 0.3)
     sheet = out_dir / SHEET_NAME
-    if not _via_contact_sheet("sheet", video, sheet, every):
-        _render_image(video, sheet_filter(duration, every), sheet)
+    if hlg or not _via_contact_sheet("sheet", video, sheet, every):
+        _render_image(video, sheet_filter(duration, every, transfer), sheet)
 
     tpath = out_dir / TRANSCRIPT_NAME
     safeio.write_text(tpath, transcript_text(video, transcript_provider),
                       overwrite=safeio.is_rewritable(tpath))
     meta = {"length_s": round(duration, 2), "fps": info["fps"],
-            "size": f"{info['width']}x{info['height']}", "source": video.name}
+            "size": f"{info['width']}x{info['height']}", "source": video.name,
+            "transfer": transfer, "tonemapped": hlg}
     if hook:
         meta["hook"] = hook
     mpath = out_dir / META_NAME
@@ -271,15 +313,35 @@ def truth_of_source(name: str) -> str:
     return "candidate"
 
 
+def panel_root() -> Path:
+    return config.CACHE / "panel"
+
+
 def panel_round_dir(round_name: str) -> Path:
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+", round_name or ""):
-        raise ValueError(f"round name must be a plain token: {round_name!r}")
-    return config.CACHE / "panel" / round_name
+    """cache/panel/<round>: the round name is a plain token that cannot start with a dot, so
+    '.', '..' and hidden names are refused and the folder is always a direct child."""
+    name = round_name or ""
+    if name in (".", "..") or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", name):
+        raise ValueError(f"round name must be a plain token (letters, digits, _ . -, not starting "
+                         f"with a dot): {round_name!r}")
+    rdir = panel_root() / name
+    if rdir.resolve(strict=False).parent != panel_root().resolve(strict=False):
+        raise ValueError(f"round folder is not a direct child of {panel_root()}: {rdir}")
+    return rdir
+
+
+def mapping_path(round_name: str) -> Path:
+    """state/panel/<round>.mapping.json: outside the round folder the critic is pointed at."""
+    panel_round_dir(round_name)             # same validation of the name
+    return config.STATE / "panel" / (round_name + MAPPING_SUFFIX)
 
 
 def _clear_round(rdir: Path) -> None:
     if not rdir.exists():
         return
+    root = panel_root().resolve(strict=False)
+    if rdir.resolve(strict=False).parent != root or rdir.resolve(strict=False) == root:
+        raise ValueError(f"refusing to clear anything but a round folder under {root}: {rdir}")
     for p in sorted(rdir.rglob("*"), reverse=True):
         if p.is_file():
             safeio.remove_cache_file(p)
@@ -293,7 +355,8 @@ def _clear_round(rdir: Path) -> None:
 def anonymize(packet_dirs: Sequence[Path | str], round_name: str, seed: int,
               truth: dict[str, str] | None = None) -> dict:
     """Copy packets to cache/panel/<round>/P01../ under shuffled ids with identifying data
-    stripped; write _mapping.json {Pid: {source, truth}} (never shown to the critic)."""
+    stripped; write state/panel/<round>.mapping.json {Pid: {source, truth}} (never shown to
+    the critic: only the cache/panel/<round>/P??/ folders are passed to it)."""
     dirs = [Path(d) for d in packet_dirs]
     if not dirs:
         raise ValueError("no packet directories given")
@@ -301,6 +364,7 @@ def anonymize(packet_dirs: Sequence[Path | str], round_name: str, seed: int,
         if not d.is_dir():
             raise FileNotFoundError(d)
     rdir = panel_round_dir(round_name)
+    mpath_target = mapping_path(round_name)
     _clear_round(rdir)
     safeio.mkdir(rdir)
     order = list(range(len(dirs)))
@@ -332,15 +396,20 @@ def anonymize(packet_dirs: Sequence[Path | str], round_name: str, seed: int,
         safeio.write_json(dst / META_NAME, clean, overwrite=True)
         mapping[pid] = {"source": str(src), "truth": t}
         ids.append(pid)
-    mpath = safeio.write_json(rdir / MAPPING_NAME, mapping, overwrite=True)
+    safeio.mkdir(mpath_target.parent)
+    mpath = safeio.write_json(mpath_target, mapping, overwrite=True)
     return {"round": round_name, "dir": str(rdir), "ids": ids, "n": len(ids),
             "mapping_file": str(mpath)}
 
 
 def load_mapping(round_name: str) -> dict:
-    m = safeio.read_json(panel_round_dir(round_name) / MAPPING_NAME, default=None)
+    """The id -> {source, truth} key of a round (state/panel/<round>.mapping.json; a legacy
+    _mapping.json inside the round folder is still read)."""
+    m = safeio.read_json(mapping_path(round_name), default=None)
     if not isinstance(m, dict):
-        raise FileNotFoundError(f"no {MAPPING_NAME} for round {round_name}")
+        m = safeio.read_json(panel_round_dir(round_name) / MAPPING_NAME, default=None)
+    if not isinstance(m, dict):
+        raise FileNotFoundError(f"no mapping for round {round_name} ({mapping_path(round_name)})")
     return m
 
 
@@ -472,19 +541,20 @@ def download(shortcodes: Sequence[str], out_dir: Path | str, dry_run: bool = Tru
         r = runner(cmd)
         requests_made += 1
         out, err = getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or ""
+        rc = getattr(r, "returncode", 1)
+        f = _file_for(out_dir, code)
+        if rc == 0 and f:
+            # a landed file is a success whatever the progress lines say ("429.12KiB/s")
+            results.append({"code": code, "ok": True, "reason": "downloaded", "cmd": cmd, "file": f})
+            continue
         reason = stop_reason(out, err)
         if reason:
             stopped = reason
             results.append({"code": code, "ok": False, "reason": reason, "cmd": cmd, "file": None})
             continue
-        rc = getattr(r, "returncode", 1)
-        f = _file_for(out_dir, code)
-        if rc == 0 and f:
-            results.append({"code": code, "ok": True, "reason": "downloaded", "cmd": cmd, "file": f})
-        else:
-            tail = (err.strip().splitlines() or [""])[-1][:200]
-            results.append({"code": code, "ok": False, "reason": f"yt-dlp failed: {tail}", "cmd": cmd,
-                            "file": f})
+        tail = (err.strip().splitlines() or [""])[-1][:200]
+        results.append({"code": code, "ok": False, "reason": f"yt-dlp failed: {tail}", "cmd": cmd,
+                        "file": f})
     return results
 
 
@@ -528,59 +598,71 @@ def _parse_list(text: str) -> list[str]:
     return [p.strip() for p in (text or "").split(",") if p.strip()]
 
 
+def _common_parser() -> argparse.ArgumentParser:
+    """--json accepted before or after the subcommand (SUPPRESS so a subparser's default never
+    clobbers a flag given at the top level)."""
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="JSON output")
+    return common
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="py -m tools.panel", description=__doc__.splitlines()[0])
-    ap.add_argument("--json", action="store_true", help="JSON output")
+    common = _common_parser()
+    ap = argparse.ArgumentParser(prog="py -m tools.panel", description=__doc__.splitlines()[0],
+                                 parents=[common])
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("packet", help="build a review packet for one reel")
+    p = sub.add_parser("packet", help="build a review packet for one reel", parents=[common])
     p.add_argument("video", type=Path)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--hook", default=None)
     p.add_argument("--words", type=Path, default=None, help="JSON [[start,end,text],...] transcript")
     p.add_argument("--every", type=float, default=2.0)
 
-    a_ = sub.add_parser("anonymize", help="copy packets under shuffled neutral ids")
+    a_ = sub.add_parser("anonymize", help="copy packets under shuffled neutral ids", parents=[common])
     a_.add_argument("dirs", nargs="+", type=Path)
     a_.add_argument("--round", required=True)
     a_.add_argument("--seed", type=int, default=7)
     a_.add_argument("--truth", type=Path, default=None, help="JSON {source: winner|median|flop|candidate}")
 
-    c = sub.add_parser("calibrate", help="pair maths for a critic ranking")
+    c = sub.add_parser("calibrate", help="pair maths for a critic ranking", parents=[common])
     c.add_argument("--round", required=True)
     c.add_argument("--ranking", required=True, help="P03,P01,... best first")
     c.add_argument("--calls", default="", help="P03=breakout,P01=flop")
     c.add_argument("--truth", type=Path, default=None)
 
-    pl = sub.add_parser("plan", help="which panel reels to download")
+    pl = sub.add_parser("plan", help="which panel reels to download", parents=[common])
     pl.add_argument("--mode", choices=("burnin", "daily"), required=True)
     pl.add_argument("--out", type=Path, default=None, help="skip codes already in this folder")
     pl.add_argument("--already", default="", help="comma list of shortcodes to skip")
 
-    dl = sub.add_parser("download", help="download panel reels with yt-dlp (dry run unless --run)")
+    dl = sub.add_parser("download", help="download panel reels with yt-dlp (dry run unless --run)",
+                        parents=[common])
     dl.add_argument("--mode", choices=("burnin", "daily"), required=True)
     dl.add_argument("--out", type=Path, required=True)
     dl.add_argument("--run", action="store_true")
 
     a = ap.parse_args(argv)
+    as_json = bool(getattr(a, "json", False))
     try:
         if a.cmd == "packet":
             provider = _JsonWords(a.words) if a.words else None
             res = build_packet(a.video, a.out, transcript_provider=provider, hook=a.hook, every=a.every)
-            print(json.dumps(res, indent=2) if a.json else
+            print(json.dumps(res, indent=2) if as_json else
                   f"packet {res['dir']} length={res['length_s']}s sheet_frames={res['sheet_frames']}")
             return 0
         if a.cmd == "anonymize":
             truth = safeio.read_json(a.truth, default=None) if a.truth else None
             res = anonymize(a.dirs, a.round, a.seed, truth=truth)
-            print(json.dumps(res, indent=2) if a.json else
-                  f"round {res['round']}: {res['n']} packets in {res['dir']} (mapping kept in {MAPPING_NAME})")
+            print(json.dumps(res, indent=2) if as_json else
+                  f"round {res['round']}: {res['n']} packets in {res['dir']} "
+                  f"(mapping kept in {res['mapping_file']}; give the critic only the P??/ folders)")
             return 0
         if a.cmd == "calibrate":
             mapping = load_mapping(a.round)
             truth = safeio.read_json(a.truth, default=None) if a.truth else None
             res = calibration(_parse_list(a.ranking), _parse_kv(a.calls), mapping, truth)
-            print(json.dumps(res, indent=2) if a.json else
+            print(json.dumps(res, indent=2) if as_json else
                   f"pairs {res['pairs_correct']}/{res['pairs_total']} = {res['pair_rate']:.2f} "
                   f"{'CALIBRATED' if res['calibrated'] else 'UNCALIBRATED'} "
                   f"winners_called_flop={res['winners_called_flop']}")
@@ -588,19 +670,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         if a.cmd == "plan":
             already = set(_parse_list(a.already)) | (existing_codes(a.out) if a.out else set())
             codes = download_plan(a.mode, already)
-            print(json.dumps(codes) if a.json else " ".join(codes) or "(nothing to download)")
+            print(json.dumps(codes) if as_json else " ".join(codes) or "(nothing to download)")
             return 0
         if a.cmd == "download":
             codes = download_plan(a.mode, existing_codes(a.out))
             res = download(codes, a.out, dry_run=not a.run)
-            if a.json:
+            if as_json:
                 print(json.dumps(res, indent=2))
             else:
                 for r in res:
                     print(f"{'ok ' if r['ok'] else 'NO '}{r['code']} {r['reason']}")
             return 0 if all(r["ok"] for r in res) else 1
     except (OSError, RuntimeError, ValueError, safeio.SafeIOError) as e:
-        if a.json:
+        if as_json:
             print(json.dumps({"error": str(e)}))
         else:
             print(f"error: {e}", file=sys.stderr)

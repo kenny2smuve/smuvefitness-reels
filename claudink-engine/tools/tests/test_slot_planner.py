@@ -250,8 +250,12 @@ def test_sweep_every_quarter_hour_keeps_the_invariants(posted):
         r = sp.plan(now, his, [], 4)
         _assert_invariants(r, now)
         assert r["slots"] or r["blocked"]
-        assert len(r["new_slots"]) + len(his) <= 2 or r["date"] != d.isoformat() \
-            or any(s["date"] != d.isoformat() for s in r["new_slots"])
+        per_date: dict[str, int] = {}
+        for s in r["new_slots"]:
+            per_date[s["date"]] = per_date.get(s["date"], 0) + 1
+        for p in his:
+            per_date[p.date().isoformat()] = per_date.get(p.date().isoformat(), 0) + 1
+        assert all(n <= config.MAX_POSTS_PER_DAY for n in per_date.values()), (now, per_date)
         for s in r["new_slots"]:
             if s["date"] == d.isoformat():
                 for p in his:
@@ -307,3 +311,105 @@ def test_cli_json_and_text(engine_root, capsys):
     assert out["slots"][0]["time"] == "2026-11-01T11:00:00-05:00"
 
     assert sp.main(["--now", "not-a-time"]) == 1
+
+
+# --------------------------------------------------------------------------- review fixes
+def test_delivered_b_without_a_plans_a_before_b():
+    now = et("2026-10-19T06:40")
+    delivered = [{"slot": "B", "time": "14:30", "date": "2026-10-19", "file": "B_1430_x.mp4"}]
+    r = sp.plan(now, [], delivered, 4)
+    assert times(r) == [("A", "SEND", "2026-10-19T11:00:00-04:00"),
+                        ("B", "SAVE", "2026-10-19T14:30:00-04:00")]
+    assert r["slots"][0]["existing"] is False and r["slots"][1]["existing"] is True
+    assert "before" in r["slots"][0]["reason"]
+    _assert_invariants(r, now)
+    # too late to fit >= 3h before B: A goes after B + 3h (clock order inverted, noted)
+    now = et("2026-10-19T12:00")
+    r = sp.plan(now, [], delivered, 4)
+    assert times(r) == [("B", "SAVE", "2026-10-19T14:30:00-04:00"),
+                        ("A", "SEND", "2026-10-19T17:30:00-04:00")]
+    assert any("inverted" in n for n in r["notes"])
+    _assert_invariants(r, now)
+    # at 19:00 A still fits after B (20:00 is >= 3h after 14:30 and <= 21:00)
+    now = et("2026-10-19T19:00")
+    r = sp.plan(now, [], delivered, 4)
+    assert times(r) == [("B", "SAVE", "2026-10-19T14:30:00-04:00"),
+                        ("A", "SEND", "2026-10-19T20:00:00-04:00")]
+    _assert_invariants(r, now)
+    # and when even that is after 21:00, the pair moves to tomorrow (today's B stays listed)
+    now = et("2026-10-19T20:30")
+    r = sp.plan(now, [], delivered, 4)
+    assert times(r) == [("B", "SAVE", "2026-10-19T14:30:00-04:00"),
+                        ("A", "SEND", "2026-10-20T11:00:00-04:00"),
+                        ("B", "SAVE", "2026-10-20T14:30:00-04:00")]
+    assert r["date"] == "2026-10-20" and [s["date"] for s in r["new_slots"]] == ["2026-10-20"] * 2
+    _assert_invariants(r, now)
+
+
+def test_late_run_with_tomorrow_already_delivered_adds_nothing():
+    """A crash/retry after a late run must not plan a 3rd/4th reel for tomorrow."""
+    now = et("2026-10-19T21:30")
+    delivered = [{"slot": "A", "time": "11:00", "date": "2026-10-20", "file": "A_1100_x.mp4"},
+                 {"slot": "B", "time": "14:30", "date": "2026-10-20", "file": "B_1430_y.mp4"}]
+    r = sp.plan(now, [], delivered, 4)
+    assert r["date"] == "2026-10-20" and r["new_slots"] == []
+    assert r["blocked"] == "already 2 on 2026-10-20"
+    assert all(s["existing"] for s in r["slots"]) and len(r["slots"]) == 2
+    _assert_invariants(r, now)
+    # only A delivered for tomorrow: just B is new
+    r = sp.plan(now, [], delivered[:1], 4)
+    assert times(r) == [("A", "SEND", "2026-10-20T11:00:00-04:00"),
+                        ("B", "SAVE", "2026-10-20T14:30:00-04:00")]
+    assert [s["slot"] for s in r["new_slots"]] == ["B"] and r["blocked"] is None
+    _assert_invariants(r, now)
+    # his post tomorrow morning also counts on that date
+    r = sp.plan(now, [et("2026-10-20T09:00")], delivered[:1], 4)
+    assert r["blocked"] == "already 2 on 2026-10-20" and r["new_slots"] == []
+
+
+def test_spill_with_tomorrow_already_delivered_takes_the_free_letter():
+    now = et("2026-10-19T19:00")
+    delivered = [{"slot": "A", "time": "11:00", "date": "2026-10-20", "file": "A_1100_x.mp4"}]
+    r = sp.plan(now, [], delivered, 4)
+    assert times(r) == [("A", "SEND", "2026-10-19T20:00:00-04:00"),
+                        ("A", "SEND", "2026-10-20T11:00:00-04:00"),
+                        ("B", "SAVE", "2026-10-20T14:30:00-04:00")]
+    assert [(s["slot"], s["date"]) for s in r["new_slots"]] == [("A", "2026-10-19"), ("B", "2026-10-20")]
+    assert any("tomorrow's B" in n for n in r["notes"])
+    _assert_invariants(r, now)
+    # tomorrow full: today's single slot only, with a note
+    both = delivered + [{"slot": "B", "time": "14:30", "date": "2026-10-20", "file": "B_1430_y.mp4"}]
+    r = sp.plan(now, [], both, 4)
+    assert [(s["slot"], s["date"]) for s in r["new_slots"]] == [("A", "2026-10-19")]
+    assert any("nothing free on 2026-10-20" in n for n in r["notes"])
+    _assert_invariants(r, now)
+
+
+def test_malformed_post_file_name_is_noted_not_fatal(engine_root):
+    d = date(2026, 10, 19)
+    folder = config.POST / d.isoformat()
+    for name in ("A_9999_x.mp4", "B_1430_y.mp4", "A_1260_z.mp4"):
+        safeio.write_text(folder / name, "x")
+    found = sp.scan_delivered(d)
+    assert [(x["slot"], x["file"], x["time"] is None) for x in found] == [
+        ("A", "A_1260_z.mp4", True), ("A", "A_9999_x.mp4", True), ("B", "B_1430_y.mp4", False)]
+    now = et("2026-10-19T06:40")
+    r = sp.plan(now, [], found, 4)
+    assert times(r) == [("A", "SEND", "2026-10-19T11:00:00-04:00"),
+                        ("B", "SAVE", "2026-10-19T14:30:00-04:00")]
+    ignored = [n for n in r["notes"] if n.startswith("ignored delivered entry")]
+    assert len(ignored) == 2 and all("bad time" in n for n in ignored)
+    _assert_invariants(r, now)
+
+
+def test_cli_bad_delivered_letter_and_time_are_noted(engine_root, capsys):
+    rc = sp.main(["--now", "2026-10-19T06:40", "--delivered", "C=11:00", "A=nope", "B=14:30",
+                  "--hold", "4", "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert [(s["slot"], s["time"]) for s in out["slots"]] == [("A", "2026-10-19T11:00:00-04:00"),
+                                                             ("B", "2026-10-19T14:30:00-04:00")]
+    ignored = [n for n in out["notes"] if n.startswith("ignored delivered entry")]
+    assert len(ignored) == 2
+    assert any("C=11:00" in n and "not A or B" in n for n in ignored)
+    assert any("A=nope" in n and "bad time" in n for n in ignored)

@@ -342,8 +342,10 @@ if the profile is older than 30 days; write `weekly/<date>.md` (<= 20 lines) and
 - **Export** (`py -m tools.render_story edl.json --out ...`): 2K HDR in the original format. HLG stays
   HLG (HEVC Main10, BT.2020, arib-std-b67), full source width on a 1440x2560 canvas, letterboxed,
   never cropped, never upscaled. Raw audio, no music, no grade (the only touch is a 10 ms fade at
-  each cut so cuts never click). A Canon SDR reveal inside an HLG story is mapped into the HLG
-  container (the only conversion; `edl.export` records it). A story with no HLG source exports SDR.
+  each cut so cuts never click). Transfer rule (`edl.export` records it and why): all-HLG sources
+  export HLG; a Canon SDR reveal inside a mostly-HLG story is mapped into the HLG container (SDR
+  shown correctly inside HLG, the only conversion); only when SDR sources carry most of the
+  duration does the story export SDR with the HLG segments tonemapped. All-SDR exports SDR.
   Preview first (`--preview`, 360x640, seconds) for the fix loop; render the master once.
   A chat copy <= 25 MB comes with every master.
 
@@ -490,8 +492,8 @@ from then on.
 - Open every text file with `encoding="utf-8"` (captions contain emoji). `PYTHONUTF8=1` is set in
   CLAUDE.md and in run_daily.cmd.
 - Session-story export keeps the source width and transfer: HLG -> HEVC Main10 HLG; a Canon SDR reveal
-  is mapped into the HLG container; an all-SDR story stays bt709 SDR. Never upscale. Pad to 9:16 on a
-  1440x2560 canvas (scale down only when the source is wider).
+  inside a mostly-HLG story is mapped into the HLG container; a mostly-SDR or all-SDR story stays
+  bt709 SDR. Never upscale. Pad to 9:16 on a 1440x2560 canvas (scale down only when the source is wider).
 - Re-check the newest CSV right before writing POST_THIS. If he has posted since the run started,
   re-plan the slots.
 - The regression suite (`py -m pytest tools/tests -q`) is green before any change to `tools/`

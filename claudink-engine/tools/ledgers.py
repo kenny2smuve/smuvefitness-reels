@@ -106,8 +106,8 @@ DEFAULT_ALIASES: dict[str, str] = {
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # Excel "CSV UTF-8" on Windows prefixes the file with a byte-order mark; it must never
-# become part of the first column name ("﻿hook" would hide every burned hook).
-_BOM = "﻿"
+# become part of the first column name (U+FEFF + "hook" would hide every burned hook).
+_BOM = "\ufeff"
 
 
 class LedgerError(ValueError):

@@ -42,6 +42,10 @@ HLG_TAGS = ["-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colors
 SDR_TAGS = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
 AUDIO_KBPS = 256
 AUDIO_ARGS = ["-c:a", "aac", "-b:a", f"{AUDIO_KBPS}k", "-ar", "48000", "-ac", "2"]
+# Segments carry PCM audio in a .mov container so the join performs the ONLY AAC encode
+# (raw audio: the 10 ms afade is the only touch; no generation of lossy re-encoding at cuts).
+SEG_AUDIO_ARGS = ["-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2"]
+SEG_EXT = ".mov"
 PREVIEW_W, PREVIEW_H = 360, 640
 SEG_CACHE_DAYS = 7
 PROFILE_MAX_AGE_DAYS = 30
@@ -169,11 +173,48 @@ def probe(clip: Path | str) -> dict:
 
 
 # --------------------------------------------------------------------------- arg builders
-def decode_args(prof: Profile, info: dict) -> list[str]:
-    """Input-side options. GPU decode keeps frames on the device for scale_cuda."""
-    if prof.chosen == "gpu" and prof.nvdec and info.get("codec") in ("hevc", "h264", "av1"):
-        return ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
-    return []
+def gpu_decode(prof: Profile, info: dict) -> bool:
+    """Whether this clip decodes on NVDEC with frames kept on the GPU.
+
+    Never for a clip with a rotation display matrix (Canon MVI portrait clips): ffmpeg skips
+    autorotate for hwaccel pixel formats (fftools/ffmpeg_filter.c inserts the transpose only for
+    software frames), so the frame would stay landscape and the reveal would be rendered sideways
+    and squashed. Those clips are short; CPU decode costs nothing.
+    """
+    if prof.chosen != "gpu" or not prof.nvdec:
+        return False
+    if info.get("codec") not in ("hevc", "h264", "av1"):
+        return False
+    if (info.get("rotation") or 0) % 360 != 0:
+        return False
+    return True
+
+
+def decode_args(prof: Profile, info: dict, transfer_out: str | None = None) -> list[str]:
+    """Input-side options. GPU decode keeps frames on the device for scale_cuda.
+
+    When the segment will be tonemapped on the GPU (HLG source, SDR export, libplacebo), a Vulkan
+    device is created and handed to the filters (-filter_hw_device): with only the CUDA hwaccel
+    device registered, ffmpeg would hand that one to vf_libplacebo, which rejects it ("Expected
+    vulkan hwdevice"). scale_cuda keeps working from the frames' own CUDA frames context.
+    """
+    if not gpu_decode(prof, info):
+        return []
+    args: list[str] = []
+    if transfer_out == "sdr" and info.get("is_hlg") and prof.libplacebo:
+        args += ["-init_hw_device", "vulkan=vk", "-filter_hw_device", "vk"]
+    return args + ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+
+
+def fit_size(src_w: int, src_h: int, cw: int, ch: int) -> tuple[int, int]:
+    """Largest even size <= the source that fits inside cw x ch keeping aspect (never upscales).
+    Unknown source size -> the canvas width with height -2 (ffmpeg keeps the aspect)."""
+    if src_w <= 0 or src_h <= 0:
+        return cw, -2
+    f = min(1.0, cw / src_w, ch / src_h)
+    w = max(2, int(src_w * f) // 2 * 2)
+    h = max(2, int(src_h * f) // 2 * 2)
+    return w, h
 
 
 def _needs_tonemap(info: dict, transfer_out: str) -> bool:
@@ -189,20 +230,22 @@ def video_chain(prof: Profile, info: dict, transfer_out: str, canvas: tuple[int,
     """Scale (never up) to the canvas width, pad to the canvas, colour-convert when the segment's
     transfer differs from the export, set SAR and fps. GPU scale when the frames are on the GPU."""
     cw, ch = (PREVIEW_W, PREVIEW_H) if preview else (canvas or (config.CANVAS_W, config.CANVAS_H))
-    gpu_frames = bool(decode_args(prof, info))
+    gpu_frames = gpu_decode(prof, info)
     parts: list[str] = []
-    src_w = int(info.get("width") or 0)
     tonemap = _needs_tonemap(info, transfer_out)
     upconvert = _needs_sdr_to_hlg(info, transfer_out)
-    # target width: never upscale (pad only when the source is narrower)
-    tw = min(cw, src_w) if src_w else cw
     if gpu_frames:
+        # scale_cuda takes no expressions: the fit is computed here from the probed display size
+        tw, th = fit_size(int(info.get("width") or 0), int(info.get("height") or 0), cw, ch)
         fmt = "p010le" if (transfer_out == "hlg" and not tonemap) else ("p010le" if info.get("is_10bit") else "nv12")
-        parts.append(f"scale_cuda={tw}:-2:format={fmt}")
+        parts.append(f"scale_cuda={tw}:{th}:format={fmt}")
         parts.append("hwdownload")
         parts.append(f"format={fmt}")
     else:
-        parts.append(f"scale={tw}:-2:flags=lanczos")
+        # never upscale, always fit INSIDE the canvas (a 9:20 phone clip or a cropped export taller
+        # than the canvas would otherwise make pad fail); iw/ih are the autorotated display size
+        parts.append(f"scale=w='min(iw,{cw})':h='min(ih,{ch})':force_original_aspect_ratio=decrease:"
+                     f"force_divisible_by=2:flags=lanczos")
     if tonemap:
         parts.append(TONEMAP_GPU if (prof.chosen == "gpu" and prof.libplacebo) else TONEMAP_CPU)
     elif upconvert:
@@ -327,7 +370,7 @@ def segment_key(job: SegJob, prof: Profile) -> str:
     raw = "|".join([str(Path(job.clip).resolve()), str(st.st_size), str(int(st.st_mtime)),
                     f"{job.start:.3f}", f"{job.end:.3f}", job.transfer_out,
                     f"{job.canvas[0]}x{job.canvas[1]}", "preview" if job.preview else "master",
-                    job.extra_vf, job.audio, str(job.fps), enc])
+                    job.extra_vf, job.audio, str(job.fps), enc, SEG_AUDIO_ARGS[1]])
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
 
 
@@ -335,7 +378,7 @@ def segment_cmd_args(job: SegJob, prof: Profile) -> list[str]:
     """ffmpeg args (without binary and output) for one segment. Pure function: testable."""
     info = job.info or probe(job.clip)
     job.info = info
-    args: list[str] = decode_args(prof, info)
+    args: list[str] = decode_args(prof, info, job.transfer_out)
     args += ["-ss", f"{job.start:.3f}", "-to", f"{job.end:.3f}", "-i", str(job.clip)]
     if job.audio == "silent" or not info.get("has_audio"):
         args += ["-f", "lavfi", "-t", f"{job.duration:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
@@ -347,9 +390,17 @@ def segment_cmd_args(job: SegJob, prof: Profile) -> list[str]:
     args += ["-map", "0:v:0", *amap]
     args += ["-vf", video_chain(prof, info, job.transfer_out, job.canvas, job.preview, job.extra_vf, job.fps)]
     args += encoder_args(prof, job.transfer_out, preview=job.preview)
-    args += af + AUDIO_ARGS
+    args += af + SEG_AUDIO_ARGS
     args += ["-video_track_timescale", "90000", "-movflags", "+faststart", "-shortest"]
     return args
+
+
+def cpu_profile(prof: Profile) -> Profile:
+    """The same machine on the CPU path (segment fallback when a GPU command fails)."""
+    d = prof.to_json()
+    d["chosen"] = "cpu"
+    d["notes"] = []
+    return Profile.from_json(d)
 
 
 def seg_cache_dir() -> Path:
@@ -373,11 +424,15 @@ def _cached_ok(path: Path, expected: float, tol: float = 0.08) -> bool:
     return d >= 0 and abs(d - expected) <= tol
 
 
-def render_segment(job: SegJob, prof: Profile, runner=None) -> dict:
-    """Render one segment into the cache (or reuse it). Returns {path, cached, seconds, realtime}."""
+def render_segment(job: SegJob, prof: Profile, runner=None, fallback: bool = True) -> dict:
+    """Render one segment into the cache (or reuse it). Returns {path, cached, seconds, realtime, key}.
+
+    On the GPU path a failing ffmpeg command is retried once on the CPU profile (fallback=True)
+    and the result carries "fallback": "cpu" plus the GPU error in "note"; the caller must then
+    re-encode the join (the CPU segment's parameters differ from the NVENC ones)."""
     runner = runner or safeio.run_ffmpeg
     key = segment_key(job, prof)
-    out = seg_cache_dir() / f"{key}.mp4"
+    out = seg_cache_dir() / f"{key}{SEG_EXT}"
     if _cached_ok(out, job.duration):
         return {"path": out, "cached": True, "seconds": 0.0, "realtime": None, "key": key}
     t0 = time.time()
@@ -385,8 +440,13 @@ def render_segment(job: SegJob, prof: Profile, runner=None) -> dict:
     res = runner(args, out, inputs=[job.clip], overwrite=True)
     dt = time.time() - t0
     if res.returncode != 0:
-        raise RuntimeError(f"segment render failed ({job.clip.name} {job.start}-{job.end}): "
-                           f"{(res.stderr or '').strip()[-600:]}")
+        err = (res.stderr or "").strip()[-600:]
+        if fallback and prof.chosen == "gpu":
+            r = render_segment(job, cpu_profile(prof), runner, fallback=False)
+            r["fallback"] = "cpu"
+            r["note"] = f"GPU segment failed, rendered on the CPU: {err[-200:]}"
+            return r
+        raise RuntimeError(f"segment render failed ({job.clip.name} {job.start}-{job.end}): {err}")
     if not _cached_ok(out, job.duration, tol=0.15):
         raise RuntimeError(f"segment {key} has the wrong duration (expected {job.duration}s)")
     return {"path": out, "cached": False, "seconds": round(dt, 2),
@@ -394,12 +454,12 @@ def render_segment(job: SegJob, prof: Profile, runner=None) -> dict:
 
 
 def render_segments(jobs: Sequence[SegJob], prof: Profile, workers: int | None = None,
-                    runner=None) -> list[dict]:
+                    runner=None, fallback: bool = True) -> list[dict]:
     """All segments in parallel (profile.workers at once), order preserved, cache honoured."""
     n = workers or prof.workers
     results: list[dict | None] = [None] * len(jobs)
     with cf.ThreadPoolExecutor(max_workers=max(1, n)) as ex:
-        futs = {ex.submit(render_segment, j, prof, runner): i for i, j in enumerate(jobs)}
+        futs = {ex.submit(render_segment, j, prof, runner, fallback): i for i, j in enumerate(jobs)}
         for f in cf.as_completed(futs):
             results[futs[f]] = f.result()     # raises the first failure
     return [r for r in results if r is not None]
@@ -408,7 +468,8 @@ def render_segments(jobs: Sequence[SegJob], prof: Profile, workers: int | None =
 # --------------------------------------------------------------------------- join
 def join_segments(paths: Sequence[Path], out: Path, expected: float | None = None,
                   overwrite: bool = False) -> dict:
-    """Concat demuxer: video stream-copied, audio re-encoded once (no AAC priming gaps at cuts)."""
+    """Concat demuxer: video stream-copied, the segments' PCM audio encoded to AAC exactly once
+    here (so there are no AAC priming gaps at cuts and no second lossy generation)."""
     out = Path(out)
     lst = seg_cache_dir() / f"concat_{hashlib.sha1('|'.join(map(str, paths)).encode()).hexdigest()[:12]}.txt"
     lines = "".join("file '" + str(Path(p).resolve()).replace("'", r"'\''") + "'\n" for p in paths)

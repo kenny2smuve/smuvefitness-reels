@@ -151,8 +151,11 @@ def test_frame1_without_keyword_is_none_and_passes_with_note():
 
 
 def test_frame1_not_checked_when_tags_not_given():
-    r = hg.check("Would you sit 8 hours for one of these?", BURNED, [])
+    r = hg.check("Would u tap on this spot?", BURNED, [])
     assert r["frame1_match"] is None and not r["notes"]
+    r = hg.check("Would you sit 8 hours for one of these?", BURNED, [])
+    assert r["frame1_match"] is None
+    assert not any("frame" in n for n in r["notes"])          # only the hours-claim note
 
 
 # --------------------------------------------------------------------------- hours claim
@@ -226,7 +229,9 @@ def _seed_ledgers(root):
 def test_burned_hooks_and_captions_load_from_ledgers(engine_root):
     _seed_ledgers(engine_root)
     assert sorted(hg.burned_hooks()) == sorted(BURNED)
-    assert hg.used_captions() == CAPTIONS
+    assert hg.used_hooks() == hg.burned_hooks()              # alias: all rows, any status
+    assert hg.used_captions() == [hg.caption_body(c) for c in CAPTIONS]
+    assert not any(config.CAPTION_TAIL in c for c in hg.used_captions())
     try:
         from tools import ledgers  # noqa: F401
         via = "ledgers"
@@ -290,3 +295,111 @@ def test_cli_explicit_csv_paths(tmp_path, capsys, engine_root):
     rc = hg.main(["Would u tap on this spot", "--hooks-csv", str(hooks_csv), "--json"])
     out = json.loads(capsys.readouterr().out)
     assert rc == 1 and out["hook1"]["matched"] == "Would u tap on this spot?"
+
+
+# --------------------------------------------------------------------------- review fixes
+def test_caption_tail_does_not_inflate_similarity():
+    """Every used caption ends with the same booking line; its tokens must not count."""
+    hook = "Would you tattoo this?"
+    assert hg.similarity(hook, CAPTIONS[0]) < config.HOOK_FUZZY_MATCH
+    assert hg.similarity(hook, hg.caption_body(CAPTIONS[0])) < config.HOOK_FUZZY_MATCH
+    r = hg.check(hook, [], CAPTIONS)
+    assert r["ok"], r["reasons"]
+    assert r["similarity_max"] < config.HOOK_FUZZY_MATCH
+    # the recycled angle still matches, with or without the tail
+    assert hg.similarity("Would you let your boy pick your next piece?", CAPTIONS[0]) >= 0.85
+    assert hg.caption_body(CAPTIONS[0]) == "Would you let your boy pick your next piece?"
+    assert hg.caption_body("no tail here") == "no tail here"
+    assert hg.caption_body("") == ""
+
+
+def test_hours_claim_without_pieces_is_visible():
+    r = hg.check("Would you sit 8 hours for this?", [], [], pieces_hours=None)
+    assert r["ok"]                                            # spec: not given -> not a failure
+    assert any("not verified" in n and "8" in n for n in r["notes"])
+    assert hg.check("Would u tap on this spot?", [], [], pieces_hours=None)["notes"] == []
+
+
+def test_cli_hours_claim_fails_when_pieces_ledger_is_missing(engine_root, capsys):
+    assert not (config.LEDGERS / "pieces.csv").exists()
+    rc = hg.main(["Would you sit 8 hours for this?", "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 1 and not out["ok"]
+    assert any("hours not in pieces.csv: 8" in r for r in out["hook1"]["reasons"])
+    assert any("pieces.csv missing" in n for n in out["notes"])
+    # a ledger with no known hours: same outcome, different note
+    safeio.append_csv_row(config.LEDGERS / "pieces.csv",
+                          {"piece": "Virgin Mary", "sessions": "", "hours": "", "color": "no"},
+                          ["piece", "sessions", "hours", "color", "healed_footage", "rest_until", "notes"])
+    rc = hg.main(["Would you sit 8 hours for this?"])
+    text = capsys.readouterr().out
+    assert rc == 1 and "no row with known hours" in text and "FAIL" in text
+    # --no-ledgers: cannot verify, says so, does not fail
+    rc = hg.main(["Would you sit 8 hours for this?", "--no-ledgers", "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0 and any("not verified" in n for n in out["hook1"]["notes"])
+
+
+@pytest.mark.parametrize("hook,claims", [
+    ("A 10-hour sit for this", [10.0]),
+    ("10hr shoulder, would you?", [10.0]),
+    ("Two sessions, one sleeve", [2.0]),
+    ("One session. Would you?", [1.0]),
+    ("Was it worth the 7.5 hours?", [7.5]),
+    ("Would u tap on this spot?", []),
+])
+def test_hours_claims_spellings(hook, claims):
+    assert hg.hours_claims(hook) == claims
+    if claims:
+        assert hg.has_number(hook) and hg.has_stakes(hook)
+
+
+def test_stakes_and_number_spellings_agree():
+    assert hg.has_stakes("10hr shoulder")
+    assert hg.has_stakes("A 10-hour sit for this")
+    assert hg.has_number("Two sessions, one sleeve")
+    assert not hg.has_number("Which one would you get")       # "one" alone is a pronoun
+    assert hg.normalize("Two sessions, one sleeve") == "# sessions, one sleeve"
+    assert hg.frame1_required_tags("10hr shoulder") == {"hours", "stakes"}
+
+
+def test_paid_and_charged_are_price_hooks():
+    assert "price" in hg.losing_types("He paid for 50 hours. Worth it?")
+    assert "price" in hg.losing_types("I charged him by the session")
+    assert "price" not in hg.losing_types("Was it worth the 50 hours?")
+
+
+def test_delivered_hooks_count_as_used(engine_root):
+    _seed_ledgers(engine_root)
+    header = ["id", "date", "slot", "type", "file", "chat_file", "phash", "hook1", "hook2",
+              "caption", "status", "posted_shortcode", "views_24h", "views_72h", "shares_72h",
+              "saves_72h", "avg_watch_72h", "tests", "notes"]
+    try:
+        from tools import ledgers
+        header = ledgers.header_of("deliveries")
+    except ImportError:
+        pass
+    path = config.LEDGERS / "deliveries.csv"
+    rows = [
+        ("delivered", "Would you sit 7 hours for this shoulder?", "His face after 7 hours"),
+        ("held", "Held reel hook about the healed sleeve", "Second held hook, 9 hours"),
+        ("cancelled", "Cancelled hook, would you sit 3 hours", ""),
+        ("posted", "Was it worth the 10 hours?", "Would u sit 10 hours?"),
+    ]
+    for i, (status, h1, h2) in enumerate(rows):
+        safeio.append_csv_row(path, {k: "" for k in header} | {
+            "id": f"d{i}", "date": "2026-10-18", "slot": "A", "type": "story",
+            "file": f"A_1100_x{i}.mp4", "hook1": h1, "hook2": h2, "status": status}, header)
+    used = hg.used_hooks()
+    assert "Would you sit 7 hours for this shoulder?" in used
+    assert "His face after 7 hours" in used
+    assert "Was it worth the 10 hours?" in used and "Would u sit 10 hours?" in used
+    assert not any("Held reel" in h or "held hook" in h or "Cancelled" in h for h in used)
+    assert set(BURNED) <= set(used)
+    assert hg.burned_hooks() == used                           # the alias sees deliveries too
+    r = hg.check("Would you sit 7 hours for this shoulder", [], [])
+    assert r["ok"]                                             # no ledger passed: pure check
+    r = hg.check("Would you sit 7 hours for this shoulder", used, [])
+    assert not r["ok"] and r["matched"] == "Would you sit 7 hours for this shoulder?"
+    # explicit --hooks-csv means that file only (no deliveries union)
+    assert sorted(hg.used_hooks(config.LEDGERS / "hooks.csv")) == sorted(BURNED)
