@@ -124,6 +124,12 @@ def test_sheet_layout_maths():
     assert panel.sheet_layout(45.0, 2.0) == (23, 5)
     assert panel.sheet_layout(7.0, 2.0) == (4, 1)
     assert panel.sheet_layout(0.0, 2.0) == (1, 1)
+    # an exact multiple has no frame at t == duration: 10 s at 2 s is 5 frames, same as the
+    # picture tools.contact_sheet draws (panel delegates to its sheet_layout)
+    from tools import contact_sheet
+    assert panel.sheet_layout(10.0, 2.0) == (5, 1)
+    for dur in (10.0, 45.0, 7.0, 13.6, 0.4):
+        assert panel.sheet_layout(dur, 2.0) == contact_sheet.sheet_layout(dur, 2.0, panel.SHEET_COLS)
     assert "tile=5x5:nb_frames=23" in panel.sheet_filter(45.0, 2.0)
     assert "fps=4,select=lt(n\\,13)" in panel.strip_filter() and "tile=7x2" in panel.strip_filter()
     assert "pts\\:hms" in panel.timestamp_filter()

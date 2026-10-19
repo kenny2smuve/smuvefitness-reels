@@ -7,7 +7,12 @@ as a numpy array (so PyAV never has to open his HEVC/HLG files), the model runs 
 and every result is cached as JSON under cache/transcripts/ so a window is transcribed once.
 
 Why two passes: the VAD filter drops real speech on quiet POV audio, so `both_passes()` unions
-a VAD and a no-VAD pass before anyone decides a line does not exist.
+a VAD and a no-VAD pass before anyone decides a line does not exist. The window is decoded
+ONCE and both passes run on the same array (a Drive clip is read once, not twice).
+
+Silent b-roll: a header-only ffprobe (`has_audio_stream`) decides whether there is anything to
+decode at all; a clip without an audio stream gives an empty array and no model call. The
+ffmpeg stderr wording is only a secondary guard.
 
 Why decode_audio() calls subprocess directly instead of tools.safeio: it writes NO file. The
 PCM goes to stdout through a pipe (`-f f32le -`), so there is no output path for the write
@@ -48,6 +53,16 @@ class Word:
 
 
 # --------------------------------------------------------------------------- audio
+def has_audio_stream(clip: Path | str) -> bool | None:
+    """True/False from a header-only ffprobe (-select_streams a); None when ffprobe itself
+    fails (a corrupt file), so the caller lets ffmpeg decide and report the real error."""
+    r = safeio.run_ffprobe(["-v", "error", "-select_streams", "a", "-show_entries",
+                            "stream=codec_type", "-of", "csv=p=0", str(clip)])
+    if r.returncode != 0:
+        return None
+    return "audio" in (r.stdout or "")
+
+
 def decode_audio(clip: Path | str, start: float | None = None, end: float | None = None,
                  sr: int = 16000):
     """Decode [start, end] of a clip to mono float32 PCM at `sr` Hz (numpy 1-D array).
@@ -62,6 +77,8 @@ def decode_audio(clip: Path | str, start: float | None = None, end: float | None
     clip = Path(clip)
     if not clip.is_file():
         raise FileNotFoundError(clip)
+    if has_audio_stream(clip) is False:
+        return np.zeros(0, dtype=np.float32)
     cmd = [config.FFMPEG, "-nostdin", "-hide_banner", "-v", "error"]
     if start is not None and float(start) > 0:
         cmd += ["-ss", f"{float(start):.3f}"]
@@ -132,7 +149,12 @@ class FasterWhisperTranscript:
 
     @staticmethod
     def _from_cache(p: Path) -> list[Word] | None:
-        d = safeio.read_json(p, default=None)
+        """Words from a cache file, or None when it is missing, unreadable, not JSON or not
+        in our shape (a corrupt cache must be a miss, never a dead end)."""
+        try:
+            d = safeio.read_json(p, default=None)
+        except (ValueError, OSError, UnicodeDecodeError):
+            return None
         if not isinstance(d, dict) or "words" not in d:
             return None
         out: list[Word] = []
@@ -156,7 +178,12 @@ class FasterWhisperTranscript:
         if cached is not None:
             return cached
         audio = decode_audio(clip, start, end)
-        offset = float(start) if start is not None and float(start) > 0 else 0.0
+        words = self._words_from_audio(audio, _offset(start), vad)
+        self._save_cache(cp, clip, start, end, vad, words)
+        return words
+
+    def _words_from_audio(self, audio, offset: float, vad: bool) -> list[Word]:
+        """Run the model on an already decoded window; times shifted by `offset`."""
         words: list[Word] = []
         if getattr(audio, "size", 0) > 0:
             kw = {"word_timestamps": True, "vad_filter": bool(vad),
@@ -173,7 +200,6 @@ class FasterWhisperTranscript:
                                       round(offset + float(w.end), 3), text,
                                       round(float(getattr(w, "probability", 1.0)), 4)))
         words.sort(key=lambda x: (x.start, x.end))
-        self._save_cache(cp, clip, start, end, vad, words)
         return words
 
     def _save_cache(self, cp: Path, clip: Path, start, end, vad: bool, words: list[Word]) -> None:
@@ -188,9 +214,27 @@ class FasterWhisperTranscript:
 
     def both_passes(self, clip: Path | str, start: float | None = None,
                     end: float | None = None) -> list[Word]:
-        """Union of the VAD and the no-VAD pass, deduped by (round(start, 2), text)."""
-        return merge_words(self.words(clip, start, end, vad=True),
-                           self.words(clip, start, end, vad=False))
+        """Union of the VAD and the no-VAD pass, deduped by (round(start, 2), text).
+        The window is decoded once; each pass still gets its own cache file."""
+        clip = Path(clip)
+        if not clip.is_file():
+            raise FileNotFoundError(clip)
+        results: dict[bool, list[Word]] = {}
+        missing: list[bool] = []
+        for vad in (True, False):
+            cp = self.cache_path(clip, start, end, vad)
+            cached = self._from_cache(cp) if cp.exists() else None
+            if cached is not None:
+                results[vad] = cached
+            else:
+                missing.append(vad)
+        if missing:
+            audio = decode_audio(clip, start, end)
+            for vad in missing:
+                words = self._words_from_audio(audio, _offset(start), vad)
+                self._save_cache(self.cache_path(clip, start, end, vad), clip, start, end, vad, words)
+                results[vad] = words
+        return merge_words(results[True], results[False])
 
 
 # edl.py looks for one of these names and instantiates it with no arguments.
@@ -198,6 +242,10 @@ TranscriptProvider = FasterWhisperTranscript
 
 
 # --------------------------------------------------------------------------- pure helpers
+def _offset(start: float | None) -> float:
+    return float(start) if start is not None and float(start) > 0 else 0.0
+
+
 def merge_words(*passes: Iterable[Word]) -> list[Word]:
     """Union of word lists deduped by (round(start, 2), normalised text), sorted by start."""
     seen: dict[tuple[float, str], Word] = {}

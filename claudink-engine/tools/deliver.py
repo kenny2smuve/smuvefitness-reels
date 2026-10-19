@@ -824,10 +824,13 @@ def plan_today(now: datetime, his_posts_today: Sequence[datetime] | None = None,
     now = _tz(now)
     d = target_date or (now.date() + timedelta(days=1) if morning_arm else now.date())
     delivered = []
-    for letter, x in delivered_slots(d).items():
-        if x.get("time"):
-            delivered.append({"slot": letter, "time": x["time"], "date": d.isoformat(),
-                              "file": x.get("file")})
+    # the target date AND the next one: slot_planner.plan keeps only the target date's entries
+    # for today and consults the next date's when a slot spills to tomorrow (never a 3rd reel)
+    for day in (d, d + timedelta(days=1)):
+        for letter, x in delivered_slots(day).items():
+            if x.get("time"):
+                delivered.append({"slot": letter, "time": x["time"], "date": day.isoformat(),
+                                  "file": x.get("file")})
     his = list(his_posts_today) if his_posts_today is not None else his_posts_on(d)
     hc = hold_count() if hold_count_ is None else int(hold_count_)
     result = slot_planner.plan(now, his, delivered, hc, morning_arm=morning_arm, target_date=d)

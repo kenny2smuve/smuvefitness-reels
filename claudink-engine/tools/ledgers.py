@@ -419,7 +419,9 @@ def hooks_all() -> list[dict]:
 
 
 def burned_hooks() -> list[str]:
-    """Hooks that must never be used again (status burned, retired or losing_type)."""
+    """Hooks that must never be used again (status burned, retired or losing_type).
+    Narrower than tools.hook_gate.used_hooks(), which G10 / deliver use: that one returns EVERY
+    row of hooks.csv (any status, "ok" rows are hooks already used) plus delivered hooks."""
     return [r["hook"] for r in read("hooks")
             if (r.get("status") or "").strip().lower() in HOOK_BURNED_STATUS and r.get("hook")]
 

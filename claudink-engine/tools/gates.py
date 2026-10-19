@@ -1218,7 +1218,9 @@ def gate_g10(ctx: Ctx) -> list[dict]:
         captions = hook_gate.used_captions()
         rows = _pieces_rows()
         pieces = [str(p) for p in (ctx.edl.get("pieces") or [])] or None
-        pieces_hours = hook_gate.pieces_hours_from_rows(rows, pieces) if rows else None
+        # always a dict ({} when pieces.csv is empty): hook_gate then FAILS an hours claim it cannot
+        # verify instead of passing it with a note (never invent hours, START_HERE 3.6)
+        pieces_hours = hook_gate.pieces_hours_from_rows(rows, pieces)
         pair = hook_gate.check_pair(hooks[0], hooks[1], burned, captions, sorted(ctx.first_tags()), pieces_hours)
         if not pair["ok"]:
             reasons.extend(pair["reasons"])

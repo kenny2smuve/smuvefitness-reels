@@ -543,7 +543,7 @@ def test_hold_round_trip_and_pick(engine_root, tmp_path, base_clips):
 
 # --------------------------------------------------------------------------- plan
 def test_plan_today_uses_post_folder_ledger_and_reels_csv(engine_root, tmp_path, base_clips):
-    pytest.importorskip("tools.slot_planner", reason="tools.slot_planner not built yet")
+    import tools.slot_planner  # noqa: F401  (sibling module: present in the kit)
     from tools import deliver as dl
     _pieces_csv()
     r0 = dl.plan_today(NOW)
@@ -561,6 +561,21 @@ def test_plan_today_uses_post_folder_ledger_and_reels_csv(engine_root, tmp_path,
     assert r2["his_posts"] == ["2026-10-19T08:00:00-04:00"]
     assert r2["posts_allowed_today"] == 1
     assert [s["slot"] for s in r2["new_slots"]] == []
+
+
+def test_plan_today_spill_sees_tomorrows_post_folder(engine_root, tmp_path, base_clips):
+    from tools import deliver as dl
+    _pieces_csv()
+    # tomorrow's A is already delivered (a file in post/2026-10-20/); nothing today
+    tomorrow = config.POST / "2026-10-20"
+    safeio.write_bytes(tomorrow / "A_1100_early.mp4", b"\x00")
+    late = datetime(2026, 10, 19, 20, 30, tzinfo=config.TZ)          # A would land after 21:00
+    r = dl.plan_today(late, hold_count_=4)
+    assert {"slot": "A", "time": "11:00", "date": "2026-10-20", "file": "A_1100_early.mp4"} in r["delivered"]
+    new = [(s["slot"], s["date"], s["label"]) for s in r["new_slots"]]
+    assert new and all(d == "2026-10-20" for _s, d, _l in new)
+    assert ("A", "2026-10-20", "11:00 ET") not in new            # tomorrow's A is taken, never doubled
+    assert len(new) <= 1
 
 
 # --------------------------------------------------------------------------- CLI
@@ -588,7 +603,7 @@ def test_cli_deliver_and_post_this(engine_root, tmp_path, base_clips, capsys):
 
 
 def test_cli_force_no_mirror_and_plan(engine_root, tmp_path, base_clips, capsys):
-    pytest.importorskip("tools.slot_planner", reason="tools.slot_planner not built yet")
+    import tools.slot_planner  # noqa: F401  (sibling module: present in the kit)
     from tools import deliver as dl
     _pieces_csv()
     reel, chat = _work(tmp_path, base_clips, "story", "dark_A", passed=False)

@@ -160,3 +160,78 @@ def test_cli_json_and_srt_from_cache(speech_clip, capsys):
     assert "[0.00-1.00] Hello there" in capsys.readouterr().out
     assert tr.main([str(speech_clip.with_name("nope.mp4")), "--json"]) == 1
     assert "error" in json.loads(capsys.readouterr().out)
+
+
+def test_both_passes_decodes_the_window_once(speech_clip, monkeypatch):
+    from tools import transcribe as tr
+    decodes = []
+    real = tr.decode_audio
+
+    def counting(clip, start=None, end=None, sr=16000):
+        decodes.append((start, end))
+        return real(clip, start, end, sr)
+
+    monkeypatch.setattr(tr, "decode_audio", counting)
+    fake = FakeModel([(0.0, 0.3, "hi", 0.9)])
+    prov = tr.FasterWhisperTranscript(model=fake)
+    words = prov.both_passes(speech_clip, 0.5, 2.0)
+    assert [w.text for w in words] == ["hi"] and words[0].start == pytest.approx(0.5)
+    assert decodes == [(0.5, 2.0)]                 # one ffmpeg pipe for both passes
+    assert len(fake.calls) == 2
+    assert prov.cache_path(speech_clip, 0.5, 2.0, True).is_file()
+    assert prov.cache_path(speech_clip, 0.5, 2.0, False).is_file()
+    # fully cached: no decode, no model
+    assert prov.both_passes(speech_clip, 0.5, 2.0) == words
+    assert decodes == [(0.5, 2.0)] and len(fake.calls) == 2
+    # one pass cached, the other not: still a single decode
+    tr.FasterWhisperTranscript(model=fake).words(speech_clip, 2.0, 3.0, vad=True)
+    assert len(decodes) == 2
+    tr.FasterWhisperTranscript(model=fake).both_passes(speech_clip, 2.0, 3.0)
+    assert len(decodes) == 3 and len(fake.calls) == 4
+
+
+def test_has_audio_stream_gate(speech_clip, engine_root, clip_factory):
+    from tools import transcribe as tr
+    assert tr.has_audio_stream(speech_clip) is True
+    mute = clip_factory("mute3.mp4", seconds=0.5, w=160, h=90, audio="none")
+    assert tr.has_audio_stream(mute) is False
+    bad = speech_clip.with_name("bad.mp4")
+    bad.write_bytes(b"nope")
+    assert tr.has_audio_stream(bad) is None        # unknown: ffmpeg gets to report the error
+
+
+def test_decode_audio_corrupt_file_raises(speech_clip):
+    from tools import transcribe as tr
+    bad = speech_clip.with_name("corrupt.mp4")
+    bad.write_bytes(b"nope")
+    with pytest.raises(RuntimeError, match="audio decode failed"):
+        tr.decode_audio(bad)
+
+
+def test_corrupt_cache_falls_through_to_a_fresh_transcription(speech_clip):
+    from tools import transcribe as tr
+    fake = FakeModel([(0.0, 0.3, "hi", 0.9)])
+    prov = tr.FasterWhisperTranscript(model=fake)
+    cp = prov.cache_path(speech_clip, None, None, True)
+    cp.parent.mkdir(parents=True, exist_ok=True)
+    cp.write_text("{}", encoding="utf-8")
+    assert prov.words(speech_clip) == [tr.Word(0.0, 0.3, "hi", 0.9)]
+    assert len(fake.calls) == 1
+    assert json.loads(cp.read_text(encoding="utf-8"))["words"][0]["text"] == "hi"
+    cp.write_text("garbage", encoding="utf-8")
+    assert tr.FasterWhisperTranscript._from_cache(cp) is None
+    # unparsable JSON is a miss, not a dead end: transcribed again and the file repaired
+    assert prov.words(speech_clip) == [tr.Word(0.0, 0.3, "hi", 0.9)]
+    assert len(fake.calls) == 2
+    assert json.loads(cp.read_text(encoding="utf-8"))["words"][0]["text"] == "hi"
+
+
+def test_cache_dir_outside_roots_is_not_written(speech_clip, tmp_path):
+    from tools import transcribe as tr
+    outside = tmp_path / "not-engine" / "transcripts"
+    fake = FakeModel([(0.0, 0.3, "hi", 0.9)])
+    prov = tr.FasterWhisperTranscript(model=fake, cache_dir=outside)
+    assert prov.words(speech_clip) == [tr.Word(0.0, 0.3, "hi", 0.9)]
+    assert not outside.exists()
+    assert prov.words(speech_clip) == [tr.Word(0.0, 0.3, "hi", 0.9)]
+    assert len(fake.calls) == 2                    # nothing cached, model runs again

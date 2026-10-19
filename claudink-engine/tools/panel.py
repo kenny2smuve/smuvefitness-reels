@@ -175,8 +175,17 @@ def strip_filter(transfer: str | None = None) -> str:
 
 
 def sheet_layout(duration: float, every: float) -> tuple[int, int]:
-    """(frames, rows): one frame every `every` seconds from 0, SHEET_COLS per row."""
-    n = max(1, int(math.floor(duration / every + 1e-6)) + 1) if duration > 0 else 1
+    """(frames, rows): the frames at 0, every, 2*every, ... strictly before `duration`
+    (ceil(duration / every): an exact multiple such as 10 s at 2 s gives 5, not a sixth frame
+    at t=10.0 that no clip has), SHEET_COLS per row. Delegates to tools.contact_sheet.sheet_layout
+    (the module that draws the sheet) so the numbers in meta.json match the picture; the local
+    rule below is the same formula, used only when contact_sheet is not importable."""
+    try:
+        from . import contact_sheet as cs
+        return tuple(cs.sheet_layout(duration, every, SHEET_COLS))
+    except (ImportError, AttributeError, TypeError, ValueError):
+        pass
+    n = max(1, int(math.ceil(duration / every - 1e-6))) if duration > 0 else 1
     return n, max(1, math.ceil(n / SHEET_COLS))
 
 

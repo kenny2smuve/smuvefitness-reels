@@ -9,7 +9,7 @@ import pytest
 
 from tools.tests.conftest import make_clip
 
-pytest.importorskip("tools.encode", reason="tools.encode (render engine) is not in the tree yet")
+import tools.encode  # noqa: F401  (render engine: present in the kit)
 
 from tools.tests.test_render_story import make_canon_clip  # noqa: E402  (shared fixture builder)
 

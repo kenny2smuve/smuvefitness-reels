@@ -10,7 +10,7 @@ import pytest
 
 from tools.tests.conftest import FFMPEG, make_clip
 
-pytest.importorskip("tools.encode", reason="tools.encode (render engine) is not in the tree yet")
+import tools.encode  # noqa: F401  (render engine: present in the kit)
 
 
 def _probe(path):

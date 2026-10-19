@@ -143,7 +143,9 @@ def test_fixed_cells_and_inclusive_end(clip, engine_root):
     assert _size(out) == (5 * 100, 100)                              # 5 frames: 0,0.5,...,2.0
     assert cs.sheet_layout(7.0, 2.0, 5) == (4, 1)
     assert cs.sheet_layout(0.0, 2.0, 5) == (1, 1)
-    assert cs.sheet_layout(10.0, 2.0, 5) == (6, 2)
+    assert cs.sheet_layout(10.0, 2.0, 5) == (5, 1)       # exact multiple: no phantom frame at 10.0
+    assert cs.sheet_layout(10.1, 2.0, 5) == (6, 2)
+    assert cs.sheet_layout(1.0, 2.0, 5) == (1, 1)
 
 
 def test_cli(clip, engine_root, capsys):
@@ -163,3 +165,96 @@ def test_cli(clip, engine_root, capsys):
     capsys.readouterr()
     assert cs.main(["frame", str(clip), "--t", "0.03", "--out", str(kept), "--json"]) == 1
     assert "error" in json.loads(capsys.readouterr().out)
+
+
+def test_font_failure_retries_without_stamps(clip, engine_root, monkeypatch, tmp_path):
+    """When the stamped attempt fails on the font, the sheet is still produced without time
+    stamps, under cache/ and in a never-overwrite folder (runs/) alike. The stamped attempt
+    is failed through the ffmpeg runner because not every ffmpeg build rejects a bogus
+    fontfile (this one falls through to fontconfig)."""
+    from subprocess import CompletedProcess
+    from tools import contact_sheet as cs, safeio
+    bogus = tmp_path / "notafont.ttf"
+    bogus.write_bytes(b"this is not a font")
+    monkeypatch.setenv("CLAUDINK_FONT", str(bogus))
+    assert cs.font_file() == str(bogus)
+    anyway = engine_root / "cache" / "sheets" / "bogusfont.jpg"
+    cs.sheet(clip, anyway, every=2.0, cols=5, width=320)        # with or without stamps
+    assert _size(anyway) == (5 * 320, 180)
+
+    calls = []
+    real = safeio.run_ffmpeg
+
+    def fail_stamped(args, out, **kw):
+        calls.append(list(args))
+        vf = args[args.index("-vf") + 1]
+        if "drawtext" in vf:
+            return CompletedProcess(args, 1, stdout="", stderr="Could not load font \"notafont\": freetype error")
+        return real(args, out, **kw)
+
+    monkeypatch.setattr(safeio, "run_ffmpeg", fail_stamped)
+    cached = engine_root / "cache" / "sheets" / "nofont.jpg"
+    assert cs.sheet(clip, cached, every=2.0, cols=5, width=320) == cached
+    assert _size(cached) == (5 * 320, 180)
+    assert len(calls) == 2
+    assert "drawtext" in calls[0][calls[0].index("-vf") + 1]
+    assert "drawtext" not in calls[1][calls[1].index("-vf") + 1]
+    kept = engine_root / "runs" / "nofont.jpg"
+    cs.sheet(clip, kept)
+    assert _size(kept) == (5 * 320, 180)
+    strip_out = engine_root / "runs" / "nofont_strip.jpg"
+    cs.strip(clip, strip_out, start=0.0, end=1.0, fps=2, cols=2)
+    assert _size(strip_out) == (2 * 320, 180)
+    assert len(calls) == 6
+
+
+def test_contact_sheet_error_when_both_attempts_fail(clip, engine_root, monkeypatch):
+    from tools import contact_sheet as cs, safeio
+    from subprocess import CompletedProcess
+    calls = []
+
+    def failing(args, out, **kw):
+        calls.append(list(args))
+        return CompletedProcess(args, 1, stdout="", stderr="Could not load font: fontconfig error")
+
+    monkeypatch.setattr(safeio, "run_ffmpeg", failing)
+    with pytest.raises(cs.ContactSheetError, match="fontconfig"):
+        cs.sheet(clip, engine_root / "cache" / "fail.jpg")
+    assert len(calls) == 2                        # stamped, then plain, then give up
+
+    calls.clear()
+
+    def other(args, out, **kw):
+        calls.append(list(args))
+        return CompletedProcess(args, 1, stdout="", stderr="Invalid data found when processing input")
+
+    monkeypatch.setattr(safeio, "run_ffmpeg", other)
+    with pytest.raises(cs.ContactSheetError, match="Invalid data"):
+        cs.sheet(clip, engine_root / "cache" / "fail2.jpg")
+    assert len(calls) == 1                        # not a font problem: no second attempt
+
+
+def test_hwaccel_from_render_profile_falls_back_to_cpu(clip, engine_root, monkeypatch):
+    from tools import config, contact_sheet as cs, safeio
+    assert cs.hwaccel_args() == []
+    safeio.write_json(config.STATE / "render_profile.json", {"chosen": "cpu", "nvdec": True})
+    assert cs.hwaccel_args() == []
+    safeio.write_json(config.STATE / "render_profile.json", {"chosen": "gpu", "nvdec": True}, overwrite=True)
+    assert cs.hwaccel_args() == ["-hwaccel", "cuda"]
+    calls = []
+    real = safeio.run_ffmpeg
+
+    def spy(args, out, **kw):
+        calls.append(list(args))
+        return real(args, out, **kw)
+
+    monkeypatch.setattr(safeio, "run_ffmpeg", spy)
+    out = engine_root / "cache" / "hw.png"
+    cs.frame(clip, 0.03, out)                      # no CUDA here: the CPU retry makes the frame
+    assert _size(out) == (320, 180)
+    assert calls[0][:2] == ["-hwaccel", "cuda"]
+    assert len(calls) in (1, 2)                    # 1 only on a box that really has CUDA
+    if len(calls) == 2:
+        assert "-hwaccel" not in calls[1]
+    (config.STATE / "render_profile.json").write_text("garbage", encoding="utf-8")
+    assert cs.hwaccel_args() == []

@@ -10,6 +10,11 @@ Why ffmpeg only: one decode per picture, no OpenCV, and every call goes through
 tools.safeio.run_ffmpeg (-nostdin -n, never -y). Outputs under cache/ may be regenerated;
 anywhere else an existing file is never overwritten.
 
+Decoding: when state/render_profile.json (written by `py -m tools.encode bench`) says the GPU
+profile with NVDEC was chosen, the first attempt decodes with `-hwaccel cuda` (a 20-minute 4K
+HEVC session clip is otherwise a slow CPU decode for a few stills); a non-zero return falls back
+to the CPU in the same call, so a picture is never lost to the GPU.
+
 Font: drawtext needs a font. We look for one that exists (CLAUDINK_FONT, Windows arial,
 DejaVu/Liberation on Linux, Helvetica on macOS) and otherwise let drawtext pick its own via
 fontconfig; if even that fails the picture is made without time stamps rather than not at all.
@@ -58,6 +63,7 @@ PANEL_SHEET_CELL = (216, 384)
 PANEL_PAD = 2
 JPEG_QUALITY = "3"
 FONT_FAIL_MARKERS = ("font", "drawtext", "fontconfig", "freetype")
+HWACCEL_ARGS = ("-hwaccel", "cuda")
 
 
 class ContactSheetError(RuntimeError):
@@ -154,9 +160,22 @@ def _image_args(out: Path) -> list[str]:
     return []
 
 
+def hwaccel_args() -> list[str]:
+    """`-hwaccel cuda` when state/render_profile.json says the GPU profile with NVDEC was
+    chosen by `tools.encode bench`; otherwise nothing (CPU decode)."""
+    try:
+        prof = safeio.read_json(config.STATE / "render_profile.json", default=None)
+    except (ValueError, OSError):
+        return []
+    if isinstance(prof, dict) and prof.get("chosen") == "gpu" and bool(prof.get("nvdec")):
+        return list(HWACCEL_ARGS)
+    return []
+
+
 def _run(pre: list[str], video: Path, vf_with_font: str, vf_no_text: str | None, out: Path,
          timeout: int = 600) -> Path:
-    """Run ffmpeg; on a font/drawtext failure retry once without the time stamps."""
+    """Run ffmpeg; a failed GPU decode retries on the CPU, a font/drawtext failure retries
+    once without the time stamps (so at worst the picture has no stamps, never no picture)."""
     video = Path(video)
     if not video.is_file():
         raise FileNotFoundError(video)
@@ -165,13 +184,16 @@ def _run(pre: list[str], video: Path, vf_with_font: str, vf_no_text: str | None,
     attempts = [vf_with_font]
     if vf_no_text is not None:
         attempts.append(vf_no_text)
+    hw = hwaccel_args()
+    decoders = [hw, []] if hw else [[]]
     last_err = ""
     for i, vf in enumerate(attempts):
-        args = [*pre, "-i", str(video), "-vf", vf, "-frames:v", "1", *_image_args(out)]
-        r = safeio.run_ffmpeg(args, out, overwrite=overwrite, timeout=timeout)
-        if r.returncode == 0 and out.is_file() and out.stat().st_size > 0:
-            return out
-        last_err = (r.stderr or "").strip()
+        for accel in decoders:
+            args = [*accel, *pre, "-i", str(video), "-vf", vf, "-frames:v", "1", *_image_args(out)]
+            r = safeio.run_ffmpeg(args, out, overwrite=overwrite, timeout=timeout)
+            if r.returncode == 0 and out.is_file() and out.stat().st_size > 0:
+                return out
+            last_err = (r.stderr or "").strip()
         if i == 0 and len(attempts) > 1 and not any(m in last_err.lower() for m in FONT_FAIL_MARKERS):
             break
     raise ContactSheetError(f"ffmpeg could not write {out.name}: {last_err[-400:]}")
@@ -179,8 +201,10 @@ def _run(pre: list[str], video: Path, vf_with_font: str, vf_no_text: str | None,
 
 # --------------------------------------------------------------------------- public API
 def sheet_layout(duration: float, every: float, cols: int) -> tuple[int, int]:
-    """(frames, rows): frame 0 plus one every `every` seconds, `cols` per row."""
-    n = max(1, int(math.floor(duration / every + 1e-6)) + 1) if duration > 0 else 1
+    """(frames, rows): the frames at 0, every, 2*every, ... strictly before `duration`
+    (ceil(duration / every); an exact multiple such as 10 s at 2 s gives 5, not a sixth frame
+    at t=10.0 that no clip has), `cols` per row."""
+    n = max(1, int(math.ceil(duration / every - 1e-6))) if duration > 0 else 1
     return n, max(1, math.ceil(n / int(cols)))
 
 

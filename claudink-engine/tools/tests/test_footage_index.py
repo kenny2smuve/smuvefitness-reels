@@ -230,3 +230,125 @@ def test_fallback_append_when_ledgers_module_is_missing(fake_drive, monkeypatch)
     rows = safeio.read_csv(fi.ledger_path())
     assert len(rows) == 1 and list(rows[0].keys()) == fi.FOOTAGE_HEADER
     assert rows[0]["camera"] == "iphone"
+
+
+def test_budget_survives_an_interrupted_run(fake_drive, monkeypatch):
+    """Ctrl-C (or a lock takeover) on the Nth probe must not lose the bytes already pulled."""
+    from tools import footage_index as fi
+    folder = fake_drive / "Session 1 of 4"
+    clips = fi.list_videos(folder)
+    real_probe = fi.probe
+    calls = []
+
+    def flaky(path):
+        calls.append(path)
+        if len(calls) == 2:
+            raise KeyboardInterrupt
+        return real_probe(path)
+
+    monkeypatch.setattr(fi, "probe", flaky)
+    with pytest.raises(KeyboardInterrupt):
+        fi.index([folder], now=NOW)
+    budget = json.loads(fi.budget_path().read_text(encoding="utf-8"))
+    assert budget["date"] == "2026-10-18"
+    # the first file was probed and the second was started: both are on the books
+    assert budget["bytes"] == clips[0].stat().st_size + clips[1].stat().st_size
+    # the next run starts from that total, not from zero
+    assert fi.load_budget(NOW)["bytes"] == budget["bytes"]
+    res = fi.index([folder], now=NOW, max_bytes=budget["bytes"])
+    assert res["stopped"] == "budget" and res["indexed"] == []
+
+
+def test_fallback_reindex_replaces_row_and_keeps_used_in(fake_drive, monkeypatch):
+    """Without tools.ledgers a changed file still gets ONE row and keeps used_in."""
+    from tools import footage_index as fi, safeio
+    monkeypatch.setattr(fi, "_ledgers", lambda: None)
+    folder = fake_drive / "Random"
+    target = folder / "VID_20261013_101010.mp4"
+    fi.index([folder], now=NOW)
+    rows = safeio.read_csv(fi.ledger_path())
+    rows[0]["used_in"] = "shoulder7h_A"
+    rows[0]["used_as_opener_in"] = "shoulder7h_A"
+    safeio.rewrite_csv(fi.ledger_path(), rows, fi.FOOTAGE_HEADER)
+    _tiny(target, seconds=1.0)
+    res = fi.index([folder], now=NOW)
+    assert res["indexed"] == [str(target)] and res["errors"] == []
+    rows = safeio.read_csv(fi.ledger_path())
+    assert len(rows) == 1
+    assert rows[0]["used_in"] == "shoulder7h_A" and rows[0]["used_as_opener_in"] == "shoulder7h_A"
+    assert int(rows[0]["size_bytes"]) == target.stat().st_size
+    assert abs(float(rows[0]["duration_s"]) - 1.0) < 0.1
+
+
+def test_bom_header_is_tolerated(fake_drive):
+    """An Excel-saved footage.csv starts with a UTF-8 BOM; ledgers.py accepts it, so do we."""
+    from tools import footage_index as fi, safeio
+    fi.index([fake_drive / "Akira back"], now=NOW)
+    raw = fi.ledger_path().read_bytes()
+    fi.ledger_path().write_bytes(b"\xef\xbb\xbf" + raw)
+    rows = fi._existing_rows()
+    assert list(rows.values())[0]["path"].endswith("IMG_4410.MOV")
+    res = fi.index([fake_drive / "Akira back"], now=NOW)
+    assert res["skipped_existing"] and res["indexed"] == []
+    assert len(safeio.read_csv(fi.ledger_path())) == 1
+
+
+def test_probe_stores_stat_size_not_ffprobe_size(fake_drive, monkeypatch):
+    from tools import footage_index as fi, safeio
+    clip = fake_drive / "Akira back" / "IMG_4410.MOV"
+    real = safeio.run_ffprobe
+
+    def lying(args, timeout=120):
+        r = real(args, timeout=timeout)
+        d = json.loads(r.stdout)
+        d["format"]["size"] = "12345"          # Drive still syncing: header size != stat size
+        r.stdout = json.dumps(d)
+        return r
+
+    monkeypatch.setattr(safeio, "run_ffprobe", lying)
+    facts = fi.probe(clip)
+    assert facts["size_bytes"] == clip.stat().st_size and facts["probe_size"] == 12345
+    first = fi.index([clip.parent], now=NOW)
+    assert first["indexed"] == [str(clip)]
+    again = fi.index([clip.parent], now=NOW)
+    assert again["indexed"] == [] and again["skipped_existing"] == [str(clip)]
+
+
+def test_resolve_folders_refuses_personal_and_outside(fake_drive, tmp_path):
+    from tools import config, footage_index as fi
+    assert fi.resolve_folders(["Akira back"]) == [fake_drive / "Akira back"]
+    assert fi.resolve_folders([str(fake_drive / "Random")]) == [fake_drive / "Random"]
+    with pytest.raises(fi.FootageIndexError, match="not a footage folder"):
+        fi.resolve_folders(["Personal"])
+    assert fi.resolve_folders(["Personal"], force=True) == [fake_drive / "Personal"]
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    with pytest.raises(fi.FootageIndexError, match="outside the footage root"):
+        fi.resolve_folders([str(outside)])
+    with pytest.raises(fi.FootageIndexError, match="outside the footage root"):
+        fi.resolve_folders([str(outside)], force=True)
+    with pytest.raises(fi.FootageIndexError, match="output folder"):
+        fi.resolve_folders([str(config.DRIVE_OUT)], force=True)
+    with pytest.raises(fi.FootageIndexError):
+        fi.resolve_folders([str(fake_drive)])            # the whole Drive is never one folder
+    with pytest.raises(fi.FootageIndexError, match="not a folder"):
+        fi.resolve_folders(["Nope"])
+    # a sub-folder of a known session inherits its status
+    sub = fake_drive / "Session 1 of 4" / "part2"
+    sub.mkdir()
+    assert fi.resolve_folders([sub]) == [sub]
+
+
+def test_cli_folders_needs_a_value_and_force(fake_drive, capsys):
+    from tools import footage_index as fi
+    with pytest.raises(SystemExit) as ex:
+        fi.main(["--folders", "--dry-run"])
+    assert ex.value.code == 2
+    assert fi.main(["--folders", "Personal", "--json", "--pause", "0"]) == 1
+    assert "not a footage folder" in json.loads(capsys.readouterr().out)["error"]
+    assert fi.main(["--folders", "Personal", "--force", "--json", "--pause", "0"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert len(out["indexed"]) == 1 and out["indexed"][0].endswith("holiday.mp4")
+    assert out["probe_cap"] == 32 * 1024 ** 2
+    assert fi.main(["--folders", "Random", "--probe-cap", "0", "--json", "--pause", "0"]) == 0
+    assert json.loads(capsys.readouterr().out)["probe_cap"] is None

@@ -428,6 +428,23 @@ def test_burned_hook_and_wrong_caption_tail_fail_g10(studio):
     assert not g10["ok"] and "3 hooks; every reel needs exactly 2 hooks" in g10["detail"] and hard_fails(rep4) == ["G10"]
 
 
+def test_hours_claim_with_empty_pieces_ledger_fails_g10(studio):
+    """G10 verifies "7 hours" against pieces.csv; with no rows the claim is unverifiable and
+    must FAIL (gates passes {} to hook_gate, never None, so the claim is not waved through)."""
+    cfg, sio = studio.config, studio.safeio
+    pieces = cfg.LEDGERS / "pieces.csv"
+    keep = sio.read_csv(pieces)
+    try:
+        sio.rewrite_csv(pieces, [], PIECES_H)
+        rep = studio.run(studio.base_reel)
+        g10 = gate(rep, "G10")
+        assert not g10["ok"] and "hours not in pieces.csv: 7" in g10["detail"]
+        assert g10["value"]["hook_gate"]["hook1"]["reasons"]
+    finally:
+        sio.rewrite_csv(pieces, keep, PIECES_H)
+    assert gate(studio.run(studio.base_reel), "G10")["ok"]
+
+
 def test_colour_or_unknown_piece_fails_g12(studio):
     doc = _variant(studio, "colour", pieces=["Color Dragon"])
     rep = studio.run(studio.base_reel, edl=studio.write_edl(doc, studio.post / "v_colour.edl.json"))

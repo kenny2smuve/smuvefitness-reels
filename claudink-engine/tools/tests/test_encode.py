@@ -38,7 +38,9 @@ def test_gpu_builders_use_nvdec_scale_cuda_placebo_nvenc(engine_root):
     gpu = encode.Profile(**GPU)
     assert encode.decode_args(gpu, HLG_INFO) == ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
     hlg_chain = encode.video_chain(gpu, HLG_INFO, "hlg")
-    assert hlg_chain.startswith("scale_cuda=1440:-2:format=p010le,hwdownload,format=p010le")
+    # scale_cuda takes no expressions: the fit (never an upscale) is computed from the probed size
+    assert encode.fit_size(2144, 2864, 1440, 2560) == (1440, 1922)
+    assert hlg_chain.startswith("scale_cuda=1440:1922:format=p010le,hwdownload,format=p010le")
     assert "pad=1440:2560" in hlg_chain and "zscale" not in hlg_chain and "libplacebo" not in hlg_chain
     sdr_chain = encode.video_chain(gpu, HLG_INFO, "sdr")
     assert "libplacebo=tonemapping=hable" in sdr_chain and "zscale" not in sdr_chain
@@ -55,12 +57,16 @@ def test_cpu_builders_fall_back(engine_root):
     cpu = encode.Profile(libx265=True, chosen="cpu", cpu_workers=2)
     assert encode.decode_args(cpu, HLG_INFO) == []
     chain = encode.video_chain(cpu, HLG_INFO, "sdr")
-    assert chain.startswith("scale=1440:-2") and "tonemap=tonemap=hable" in chain and "format=yuv420p," in chain
+    # CPU scale fits inside the canvas with an expression (never upscales, keeps aspect, even sizes)
+    assert chain.startswith("scale=w='min(iw,1440)':h='min(ih,2560)':force_original_aspect_ratio=decrease")
+    assert "tonemap=tonemap=hable" in chain and "format=yuv420p," in chain
     chain_hlg = encode.video_chain(cpu, HLG_INFO, "hlg")
     assert "format=yuv420p10le" in chain_hlg
     # never upscale: a 1080-wide Canon clip stays 1080 wide and is padded
     narrow = encode.video_chain(cpu, SDR_INFO, "sdr")
-    assert narrow.startswith("scale=1080:-2") and "pad=1440:2560" in narrow
+    assert narrow.startswith("scale=w='min(iw,1440)':h='min(ih,2560)'") and "pad=1440:2560" in narrow
+    assert encode.fit_size(1080, 1920, 1440, 2560) == (1080, 1920)
+    assert encode.fit_size(0, 0, 1440, 2560) == (1440, -2)
     up = encode.video_chain(cpu, SDR_INFO, "hlg")
     assert "t=arib-std-b67" in up
     enc = encode.encoder_args(cpu, "hlg")
