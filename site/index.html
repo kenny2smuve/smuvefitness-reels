@@ -1,0 +1,188 @@
+﻿<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+<title>SMUVE Site Preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&display=swap">
+<style>
+/* layout: one control strip, then a device frame (phone bezel or browser window) holding the live page copy */
+:root{
+  --bg:#F3F0E9; --fg:#15161A; --fg-2:#5A5D66; --surface:#FFFFFF; --line:rgba(21,22,26,.14);
+  --accent:#B98A1E; --accent-ink:#7A5600; --accent-soft:rgba(185,138,30,.14); --bezel:#141518; --bezel-2:#2A2C31; --chrome:#E9E6DF; --chrome-fg:#3A3C43;
+  --sans:Archivo,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B0C0E; --fg:#F4F1EA; --fg-2:#A9A69E; --surface:#16181C; --line:rgba(244,241,234,.14);
+  --accent:#E4B54A; --accent-ink:#F2CB70; --accent-soft:rgba(228,181,74,.16); --bezel:#000; --bezel-2:#26282D; --chrome:#1F2126; --chrome-fg:#C9C6BD; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B0C0E; --fg:#F4F1EA; --fg-2:#A9A69E; --surface:#16181C; --line:rgba(244,241,234,.14);
+  --accent:#E4B54A; --accent-ink:#F2CB70; --accent-soft:rgba(228,181,74,.16); --bezel:#000; --bezel-2:#26282D; --chrome:#1F2126; --chrome-fg:#C9C6BD; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.4;padding-block:0;padding-inline:16px;display:flex;flex-direction:column;min-height:100%}
+.top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:12px 0 10px;border-bottom:1px solid var(--line)}
+.name{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-variation-settings:"wdth" 112;font-size:12px;color:var(--accent-ink);margin-right:auto;white-space:nowrap}
+.seg{display:flex;gap:2px;padding:3px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.seg button{border:0;background:transparent;color:var(--fg-2);font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:999px;cursor:pointer;min-height:32px;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#171100}
+.seg button:focus-visible,select:focus-visible,.open:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{font:inherit;font-size:13px;font-weight:700;padding:7px 30px 7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);min-height:34px;max-width:100%;appearance:none;-webkit-appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--fg-2) 50%),linear-gradient(135deg,var(--fg-2) 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.open{font-size:12.5px;font-weight:700;color:var(--accent-ink);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:8px 12px;background:var(--surface);white-space:nowrap}
+.hint{width:100%;font-size:12px;color:var(--fg-2);margin:0}
+.publish{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:800;letter-spacing:.02em;color:#171100;background:var(--accent);text-decoration:none;border-radius:999px;padding:8px 16px;min-height:34px;white-space:nowrap;box-shadow:0 0 0 1px var(--accent-soft),0 6px 18px -8px var(--accent)}
+.publish:hover{filter:brightness(1.06)}
+.publish:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.draft .sm{display:none}body.m .draft .sm{display:inline}.draft{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:5px 10px;white-space:nowrap}
+.stageWrap{flex:1;min-height:0;display:flex;align-items:flex-start;justify-content:center;padding:16px 0 20px;overflow:hidden}
+.scaler{transform-origin:top center}
+/* phone */
+.phone{position:relative;background:var(--bezel);border-radius:54px;padding:14px;box-shadow:0 0 0 2px var(--bezel-2),0 30px 60px -30px rgba(0,0,0,.8)}
+.phone .screen{position:relative;overflow:hidden;border-radius:42px;background:#000;display:flex;flex-direction:column}
+.phone .status{height:47px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px;color:#fff;font:600 15px var(--sans);position:relative}
+.phone.android .status{height:34px;padding:0 20px;font-size:12px}
+.phone .status i{position:absolute;left:50%;top:11px;transform:translateX(-50%);width:120px;height:32px;background:#000;border-radius:18px;border:1px solid #222}
+.phone.android .status i{width:16px;height:16px;top:9px;border-radius:50%}
+.phone .status b{font-weight:700}
+.phone .foot{height:28px;flex:none;position:relative}
+.phone.android .foot{height:22px}
+.phone iframe{display:block;border:0;background:#fff}
+.phone .home{position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:rgba(255,255,255,.85);pointer-events:none}
+.phone .btn-side{position:absolute;right:-4px;top:150px;width:4px;height:70px;background:var(--bezel-2);border-radius:0 3px 3px 0}
+/* pc */
+.pc{width:100%;max-width:1440px;border-radius:12px;overflow:hidden;background:var(--chrome);box-shadow:0 0 0 1px var(--line),0 30px 60px -30px rgba(0,0,0,.7)}
+.pc .bar{display:flex;align-items:center;gap:10px;padding:9px 12px;color:var(--chrome-fg)}
+.pc .dots{display:flex;gap:6px}.pc .dots i{width:11px;height:11px;border-radius:50%;background:#e25c4a}.pc .dots i:nth-child(2){background:#f1bf3b}.pc .dots i:nth-child(3){background:#5fc35a}
+.pc .url{flex:1;min-width:0;background:var(--surface);color:var(--fg-2);border-radius:8px;padding:6px 12px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.pc iframe{display:block;width:100%;border:0;background:#fff}
+/* mobile mode (phones and small windows): no device frame, the page fills the screen, controls shrink to two short rows */
+.infoBtn{display:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--accent-ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:8px 14px;min-height:38px;cursor:pointer}
+body.m{padding-inline:0}
+body.m .top{padding:8px 16px 8px;gap:8px;border-bottom:1px solid var(--line);flex:none}
+body.m .name,body.m #devSeg,body.m .draft .lg{display:none}
+body.m .rowA{display:flex;gap:8px;width:100%;align-items:center}
+body.m .rowA label{flex:1;min-width:0}
+body.m select{width:100%;min-height:42px;font-size:16px}
+body.m .rowB{display:flex;gap:8px;width:100%}
+body.m .publish{flex:1;justify-content:center;min-height:42px;font-size:15px}
+body.m .open{min-height:42px;display:inline-flex;align-items:center}
+body.m .infoBtn{display:inline-flex;align-items:center;min-height:42px}
+body.m .hint{display:none;padding:2px 0 4px}
+body.m .hint.show{display:block}
+body.m .stageWrap{padding:0;overflow:hidden;align-items:stretch;flex:none}
+body.m .scaler{width:100%;transform:none!important;margin:0!important}
+body.m iframe.full{display:block;width:100%;border:0;background:#fff}
+.rowA,.rowB{display:contents}
+body.m .rowA,body.m .rowB{display:flex}
+body.m .rowB{flex-wrap:wrap}body.m .rowB .publish{flex:1 1 40%;min-width:0;white-space:normal;text-align:center;font-size:13.5px;line-height:1.15;padding:8px 12px}body.m .rowB .open,body.m .rowB .infoBtn{flex:1 1 40%;justify-content:center}
+</style>
+<div class="top">
+  <span class="name">SMUVE &middot; site preview</span>
+  <div class="seg" id="devSeg" role="group" aria-label="Device"><button aria-pressed="true" data-dev="iphone">iPhone</button><button data-dev="android">Android</button><button data-dev="pc">PC</button></div>
+  <div class="rowA"><label><span class="sr" style="position:absolute;left:-9999px">Page</span><select id="pageSel" aria-label="Page"></select></label><span class="draft"><span class="lg">Draft ready &middot; not live yet</span><span class="sm">Draft</span></span></div>
+  <div class="rowB"><span class="publish" id="publish" role="note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>To go live, say &ldquo;publish&rdquo; in chat</span><a class="open" id="openLink" href="home-compare.html" target="_blank" rel="noopener">Full size &#8599;</a><button class="infoBtn" id="infoBtn" type="button" aria-expanded="false" aria-controls="hint">What changed</button></div>
+  <p class="hint" id="hint"><b>Start with â€œ8 new homepage optionsâ€</b> at the top of the list and pick one by number. Options 1â€“8 keep todayâ€™s look with fewer distractions; checkout buttons open the real Stripe page in a new tab, and nothing is charged unless you pay. <b>NEW</b> pages go live in the same publish. <b>Live</b> pages are todayâ€™s site. Keep this preview private: it holds the full plans.</p>
+</div>
+<div class="stageWrap" id="stageWrap"><div class="scaler" id="scaler"></div></div>
+<script>
+(function(){
+  var PAGES = [
+    ['home-compare.html', 'START HERE: 8 new homepage options (pick one)', 'Preview notes'],
+    ['home-v1-one-screen.html', "OPTION 1: One-screen checkout", 'www.smuvefitness.net'],
+    ['home-v2-two-paths.html', "OPTION 2: Two paths", 'www.smuvefitness.net'],
+    ['home-v3-coach-first.html', "OPTION 3: Coach first", 'www.smuvefitness.net'],
+    ['home-v4-app-tour.html', "OPTION 4: App tour", 'www.smuvefitness.net'],
+    ['home-v5-plan-vs-coaching.html', "OPTION 5: Plan vs coaching", 'www.smuvefitness.net'],
+    ['home-v6-three-steps.html', "OPTION 6: Three-step checkout", 'www.smuvefitness.net'],
+    ['home-v7-sales-letter.html', "OPTION 7: Editorial sales letter", 'www.smuvefitness.net'],
+    ['home-v8-split-minimal.html', "OPTION 8: Minimal luxe split", 'www.smuvefitness.net'],
+    ['site-changes.html', 'Earlier notes: What changed (before / after + speed)', 'Preview notes'],
+    ['site-cro-home.html', 'Earlier draft: simpler home page (replaced by the 8 options)', 'www.smuvefitness.net'],
+    ['site-new-sample-men.html', "NEW: Men's free sample", 'www.smuvefitness.net/sample?program=men'],
+    ['site-new-sample-women.html', "NEW: Women's free sample (squat figure fix)", 'www.smuvefitness.net/sample?program=women'],
+    ['site-next-plan-men.html', "NEW: Men's plan, faster animations (+ optional Blocks 5-8)", 'www.smuvefitness.net/club/men'],
+    ['site-next-plan-women.html', "NEW: Women's plan, faster animations (+ optional Blocks 5-8)", 'www.smuvefitness.net/club/women'],
+    ['site-home.html', 'Live: Home page', 'www.smuvefitness.net'],
+    ['site-plan-men.html', "Live: Men's plan", 'www.smuvefitness.net/club/men'],
+    ['site-plan-women.html', "Live: Women's plan", 'www.smuvefitness.net/club/women'],
+    ['site-sample-men.html', "Live: Men's free sample", 'www.smuvefitness.net/sample?program=men'],
+    ['site-sample-women.html', "Live: Women's free sample", 'www.smuvefitness.net/sample?program=women'],
+    ['site-trial.html', 'Live: 7-day trial', 'www.smuvefitness.net/trial'],
+    ['site-checkout-promo.html', 'Live: Checkout + promo code', 'buy.stripe.com (checkout)'],
+    ['site-members.html', 'Live: Member access (sign in)', 'www.smuvefitness.net/members'],
+    ['site-welcome-men.html', 'Live: Welcome page (after paying)', 'www.smuvefitness.net/welcome'],
+    ['site-free.html', 'Live: Free lifetime pass (email only)', 'www.smuvefitness.net/free'],
+    ['site-redeem.html', 'Live: Free tester code page', 'www.smuvefitness.net/redeem'],
+    ['site-review.html', 'Live: Leave a review (members only)', 'www.smuvefitness.net/review'],
+    ['site-reviews.html', 'Live: All member reviews', 'www.smuvefitness.net/reviews'],
+    ['site-details-men.html', "Live: Men's plan details (search page)", 'www.smuvefitness.net/workout-plan-for-men/'],
+    ['site-details-women.html', "Live: Women's plan details (search page)", 'www.smuvefitness.net/workout-plan-for-women/'],
+    ['site-guides.html', 'Live: Workout guides', 'www.smuvefitness.net/guides/'],
+    ['site-admin-login.html', 'Live: Admin login (password)', 'www.smuvefitness.net/admin'],
+    ['site-admin-pin.html', 'Live: Admin step 2', 'www.smuvefitness.net/admin/step2'],
+    ['site-admin-step3.html', 'Live: Admin step 3', 'www.smuvefitness.net/admin/step3'],
+    ['site-admin.html', 'Live: Admin (sample data)', 'www.smuvefitness.net/admin'],
+    ['site-terms.html', 'Live: Terms', 'www.smuvefitness.net/terms#legal-release'],
+    ['site-privacy.html', 'Live: Privacy', 'www.smuvefitness.net/privacy'],
+    ['site-404.html', 'Live: Page not found (404)', 'www.smuvefitness.net/any-missing-page'],
+    ['site-draft-men.html', "NOT IN THIS RELEASE Â· At-home draft: Men's plan (Gym / At home switch, Blocks 1-8)", 'www.smuvefitness.net/club/men'],
+    ['site-draft-women.html', "NOT IN THIS RELEASE Â· At-home draft: Women's plan (Gym / At home switch, Blocks 1-8)", 'www.smuvefitness.net/club/women'],
+    ['site-draft-sample-men.html', "NOT IN THIS RELEASE Â· At-home draft: Men's free sample (5 home exercises)", 'www.smuvefitness.net/sample?program=men'],
+    ['site-draft-sample-women.html', "NOT IN THIS RELEASE Â· At-home draft: Women's free sample (5 home exercises)", 'www.smuvefitness.net/sample?program=women']
+  ];
+  var DEV = { iphone: [393, 852], android: [412, 915], pc: [1440, 900] };
+  var dev = 'iphone', page = 'home-compare.html';
+  try { dev = localStorage.getItem('smv.dev') || dev; page = localStorage.getItem('smv.page40') || page; } catch (e) {}
+  var mq = window.matchMedia('(max-width: 820px)'), mob = mq.matches;
+  if (!DEV[dev]) dev = 'iphone'; if (!PAGES.some(function(p){ return p[0] === page; })) page = PAGES[0][0];
+  var sel = document.getElementById('pageSel'), scaler = document.getElementById('scaler'), wrap = document.getElementById('stageWrap'), open = document.getElementById('openLink');
+  PAGES.forEach(function(p){ var o = document.createElement('option'); o.value = p[0]; o.textContent = p[1]; sel.appendChild(o); });
+  var frame = null;
+  function pageOf(file){ for (var i = 0; i < PAGES.length; i++) if (PAGES[i][0] === file) return PAGES[i]; return PAGES[0]; }
+  function build(){
+    var w = DEV[dev][0], h = DEV[dev][1];
+    document.body.classList.toggle('m', mob);
+    if (mob) {
+      scaler.innerHTML = '<iframe id="frame" class="full" title="Site preview" src="' + page + '"></iframe>';
+    } else if (dev === 'pc') {
+      scaler.innerHTML = '<div class="pc"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url" id="urlbar">ðŸ”’ ' + pageOf(page)[2] + '</span></div><iframe id="frame" title="Site preview" src="' + page + '"></iframe></div>';
+    } else {
+      var sb = dev === 'iphone' ? 47 : 34, fb = dev === 'iphone' ? 28 : 22, ih = h - sb - fb;
+      scaler.innerHTML = '<div class="phone ' + dev + '"><span class="btn-side"></span><div class="screen" style="width:' + w + 'px;height:' + h + 'px"><div class="status"><b>9:41</b><i></i><span>&#9679;&#9679;&#9679; &#9889;</span></div><iframe id="frame" title="Site preview" src="' + page + '" style="width:' + w + 'px;height:' + ih + 'px"></iframe><div class="foot"><span class="home"></span></div></div></div>';
+    }
+    frame = document.getElementById('frame');
+    frame.addEventListener('load', function(){
+      try { var f = frame.contentWindow.location.pathname.split('/').pop(); if (f && f !== page && PAGES.some(function(p){ return p[0] === f; })) { page = f; sel.value = page; open.href = page; try { localStorage.setItem('smv.page40', page); } catch (e) {} var u = document.getElementById('urlbar'); if (u) u.innerHTML = '&#128274; ' + pageOf(page)[2]; } } catch (e) {}
+    });
+    fit();
+  }
+  function fit(){
+    if (mob) {
+      var top = document.querySelector('.top'), cs = getComputedStyle(document.documentElement);
+      var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      var fr0 = document.getElementById('frame'); if (fr0) fr0.style.height = Math.max(300, vh - top.offsetHeight - pad) + 'px';
+      return;
+    }
+    var avail = wrap.clientHeight - 36, wAvail = wrap.clientWidth;
+    if (dev === 'pc') {
+      var pc = scaler.querySelector('.pc'); scaler.style.transform = 'none'; scaler.style.width = '100%';
+      var fr = document.getElementById('frame'); if (fr) fr.style.height = Math.max(420, avail - 44) + 'px';
+      return;
+    }
+    var w = DEV[dev][0] + 28, h = DEV[dev][1] + 28;
+    var s = Math.min(1, avail / h, wAvail / w);
+    scaler.style.width = w + 'px'; scaler.style.transform = 'scale(' + s + ')';
+    scaler.style.marginBottom = (h * s - h) + 'px';
+  }
+  document.querySelectorAll('#devSeg button').forEach(function(b){
+    b.addEventListener('click', function(){ dev = b.getAttribute('data-dev'); document.querySelectorAll('#devSeg button').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); }); try { localStorage.setItem('smv.dev', dev); } catch (e) {} build(); });
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-dev') === dev));
+  });
+  sel.value = page; open.href = page;
+  sel.addEventListener('change', function(){ page = sel.value; open.href = page; try { localStorage.setItem('smv.page40', page); } catch (e) {} build(); });
+  addEventListener('resize', function(){ var m2 = mq.matches; if (m2 !== mob) { mob = m2; build(); } else fit(); });
+  addEventListener('orientationchange', function(){ setTimeout(fit, 250); });
+  var ib = document.getElementById('infoBtn'), hn = document.getElementById('hint');
+  ib.addEventListener('click', function(){ var on = !hn.classList.contains('show'); hn.classList.toggle('show', on); ib.setAttribute('aria-expanded', String(on)); fit(); });
+  build();
+})();
+</script>
+</body></html>

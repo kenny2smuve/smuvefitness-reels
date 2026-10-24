@@ -1,0 +1,52 @@
+<!doctype html><html lang="en"><head><script>(function(){
+try{localStorage.removeItem('tmPopsOff');sessionStorage.removeItem('tmPopsOff')}catch(e){}
+var ex=[];window.__TM_EX={ok:true,count:ex.length,avg:5,items:ex.map(function(e,k){return{n:e[0],ig:e[1],m:e[2],p:e[3],v:e[4],s:e[5],at:Date.now()-k*6*864e5,ex:true,img:''}})};
+window.__smvCal=function(q){try{var n=document.getElementById('remnote');if(n)n.textContent='Preview copy: on the live site this opens your phone calendar with the weekly event and alerts.';}catch(e){}};var f=window.fetch;window.fetch=function(u,o){var s=String(u);if(/__forms\.html/.test(s))return Promise.resolve(new Response('ok',{status:200}));if(/^\/?api\//.test(s)){var p=s.replace(/^\/?api\//,'').split('?')[0],m=(o&&o.method||'GET').toUpperCase(),b;
+if(p==='login')b={ok:true,message:'Preview copy: on the live site this emails the member a private link. Check spam too.'};
+else if(p==='progress')b=m==='GET'?{ok:true,store:null}:{ok:true};
+else if(p==='reminders')b=m==='GET'?{ok:true,rem:null}:{ok:true,saved:true,pushSent:false,pushError:'preview copy',emailSent:true,smsSent:true,phone:'•••-•••-0199'};
+else if(p==='waiver')b={ok:true};
+else if(p==='feedback')b={ok:true};
+else if(p==='testimonials'){var ex=[];b=m==='GET'?(/me=1/.test(s)?{ok:true,eligible:true,kind:'member',program:'men'}:{ok:true,count:ex.length,avg:5,items:ex.map(function(e,k){return{n:e[0],ig:e[1],m:e[2],p:e[3],v:e[4],s:e[5],at:Date.now()-k*6*864e5,ex:true,img:''}})}):{ok:true,pending:true};}
+else if(p==='trial'){var tc='';try{tc=JSON.parse(o.body).code||'';}catch(e){}tc=String(tc).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^SMUVE/,'');b=/^[MW]7/.test(tc)?{ok:false,error:'Preview: on the live site this code opens Stripe checkout for the '+(tc[0]==='W'?'Women\u2019s':'Men\u2019s')+' plan with 7 days free.'}:{ok:false,error:'That code didn\'t work. (Preview: any code starting SMUVE-W7 or SMUVE-M7 shows what happens.)'};}
+else if(p==='free')b={ok:true,message:'Preview: on the live site this emails them a private link. Open it on the phone you train with.'};
+else if(p==='redeem'){if(m==='GET')b={ok:false};else{var v='';try{v=JSON.parse(o.body).code||'';}catch(e){}v=String(v).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^SMUVE/,'');
+b=v&&'MW'.indexOf(v[0])>=0?{ok:true,url:v[0]==='W'?'site-plan-women.html':'site-plan-men.html'}:{ok:false,error:"That code didn't work. (Preview: type any code that starts SMUVE-W for the Women\u2019s plan or SMUVE-M for the Men\u2019s plan.)"};}}
+else b={ok:false};
+return Promise.resolve(new Response(JSON.stringify(b),{status:200,headers:{'Content-Type':'application/json'}}));}return f.apply(this,arguments);};
+document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href')||'';if(/^site-[a-z0-9-]+\.html/.test(h)){e.preventDefault();e.stopImmediatePropagation();location.href=h;}},true);
+})();</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Page not found | SMUVE Training Club</title><meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230b0f0e%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2223%22%20fill%3D%22none%22%20stroke%3D%22%23f4f4f0%22%20stroke-width%3D%222.5%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2243%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2232%22%20fill%3D%22%23f4f4f0%22%3ES%3C%2Ftext%3E%3C%2Fsvg%3E" type="image/svg+xml">
+<style>
+@font-face{font-family:Archivo;src:url(fonts/archivo-var.woff2) format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+:root{color-scheme:dark;--ink:#0a0f0c;--surface:#121a16;--line:rgba(233,241,235,.14);--text:#eef3ef;--text-2:#b7c4bb;--sage:#a9cfb2;--sage-2:#dcebe0}
+*{box-sizing:border-box}html,body{margin:0;background:var(--ink);color:var(--text);font:16px/1.5 Archivo,"Helvetica Neue",Arial,sans-serif}
+body{min-height:100vh;display:flex;flex-direction:column;padding:0 20px env(safe-area-inset-bottom,0px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 0;border-bottom:1px solid var(--line)}
+.brand{display:inline-flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-weight:800;letter-spacing:.16em;font-size:.9rem}
+.brand i{display:inline-block;width:34px;height:34px;border:1.5px solid var(--text);border-radius:50%;text-align:center;line-height:31px;font:400 19px Georgia,serif;font-style:normal}
+.cta{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;background:var(--sage-2);color:var(--ink);text-decoration:none;font-weight:800;font-size:.9rem}
+main{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:720px;width:100%;margin:0 auto;padding:48px 0}
+.eyebrow{font-size:.75rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--sage)}
+h1{font-stretch:62%;font-weight:800;text-transform:uppercase;font-size:clamp(3rem,13vw,6.5rem);line-height:.9;margin:.2em 0 .25em;text-wrap:balance}
+p{color:var(--text-2);max-width:52ch;margin:0 0 26px}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.links a{display:flex;flex-direction:column;gap:2px;padding:16px 18px;border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--text);text-decoration:none;min-height:44px}
+.links a b{font-size:1rem}.links a span{font-size:.85rem;color:var(--text-2)}
+.links a:hover,.links a:focus-visible{border-color:var(--sage);outline:none}
+footer{padding:18px 0;border-top:1px solid var(--line);font-size:.8rem;color:var(--text-2)}
+</style></head><body>
+<header><a class="brand" href="site-home.html"><i>S</i>SMUVE FITNESS</a><a class="cta" href="site-home.html#training-paths">Join the Training Club</a></header>
+<main><div class="eyebrow">404 &middot; Page not found</div><h1>That page took a rest day.</h1>
+<p>The link may be old or mistyped. Here is where people usually want to go:</p>
+<nav class="links" aria-label="Popular pages">
+<a href="site-home.html"><b>Home</b><span>Coach Kenny and the Training Club</span></a>
+<a href="site-sample-women.html"><b>Try the women&rsquo;s plan free</b><span>Three real exercises, no card</span></a>
+<a href="site-sample-men.html"><b>Try the men&rsquo;s plan free</b><span>Three real exercises, no card</span></a>
+<a href="site-members.html"><b>Member login</b><span>Open the plan you paid for</span></a>
+<a href="site-redeem.html"><b>Have a free access code?</b><span>Redeem it here</span></a>
+<a href="site-guides.html"><b>Workout guides</b><span>Short, practical training help</span></a>
+</nav></main>
+<footer>SmuveFitness &middot; Miami, Broward and online</footer>
+</body></html>

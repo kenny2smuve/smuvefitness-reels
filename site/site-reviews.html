@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en"><head><script>(function(){
+try{localStorage.removeItem('tmPopsOff');sessionStorage.removeItem('tmPopsOff')}catch(e){}
+var ex=[];window.__TM_EX={ok:true,count:ex.length,avg:5,items:ex.map(function(e,k){return{n:e[0],ig:e[1],m:e[2],p:e[3],v:e[4],s:e[5],at:Date.now()-k*6*864e5,ex:true,img:''}})};
+window.__smvCal=function(q){try{var n=document.getElementById('remnote');if(n)n.textContent='Preview copy: on the live site this opens your phone calendar with the weekly event and alerts.';}catch(e){}};var f=window.fetch;window.fetch=function(u,o){var s=String(u);if(/__forms\.html/.test(s))return Promise.resolve(new Response('ok',{status:200}));if(/^\/?api\//.test(s)){var p=s.replace(/^\/?api\//,'').split('?')[0],m=(o&&o.method||'GET').toUpperCase(),b;
+if(p==='login')b={ok:true,message:'Preview copy: on the live site this emails the member a private link. Check spam too.'};
+else if(p==='progress')b=m==='GET'?{ok:true,store:null}:{ok:true};
+else if(p==='reminders')b=m==='GET'?{ok:true,rem:null}:{ok:true,saved:true,pushSent:false,pushError:'preview copy',emailSent:true,smsSent:true,phone:'•••-•••-0199'};
+else if(p==='waiver')b={ok:true};
+else if(p==='feedback')b={ok:true};
+else if(p==='testimonials'){var ex=[];b=m==='GET'?(/me=1/.test(s)?{ok:true,eligible:true,kind:'member',program:'men'}:{ok:true,count:ex.length,avg:5,items:ex.map(function(e,k){return{n:e[0],ig:e[1],m:e[2],p:e[3],v:e[4],s:e[5],at:Date.now()-k*6*864e5,ex:true,img:''}})}):{ok:true,pending:true};}
+else if(p==='trial'){var tc='';try{tc=JSON.parse(o.body).code||'';}catch(e){}tc=String(tc).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^SMUVE/,'');b=/^[MW]7/.test(tc)?{ok:false,error:'Preview: on the live site this code opens Stripe checkout for the '+(tc[0]==='W'?'Women\u2019s':'Men\u2019s')+' plan with 7 days free.'}:{ok:false,error:'That code didn\'t work. (Preview: any code starting SMUVE-W7 or SMUVE-M7 shows what happens.)'};}
+else if(p==='free')b={ok:true,message:'Preview: on the live site this emails them a private link. Open it on the phone you train with.'};
+else if(p==='redeem'){if(m==='GET')b={ok:false};else{var v='';try{v=JSON.parse(o.body).code||'';}catch(e){}v=String(v).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^SMUVE/,'');
+b=v&&'MW'.indexOf(v[0])>=0?{ok:true,url:v[0]==='W'?'site-plan-women.html':'site-plan-men.html'}:{ok:false,error:"That code didn't work. (Preview: type any code that starts SMUVE-W for the Women\u2019s plan or SMUVE-M for the Men\u2019s plan.)"};}}
+else b={ok:false};
+return Promise.resolve(new Response(JSON.stringify(b),{status:200,headers:{'Content-Type':'application/json'}}));}return f.apply(this,arguments);};
+document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href')||'';if(/^site-[a-z0-9-]+\.html/.test(h)){e.preventDefault();e.stopImmediatePropagation();location.href=h;}},true);
+})();</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Member reviews | SMUVE Fitness</title>
+<link rel="icon" href="icons/apple-touch-icon.png"><meta name="theme-color" content="#080a0b">
+<style>
+@font-face{font-family:Archivo;src:url(fonts/archivo-var.woff2) format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+:root{--bg:#080a0b;--panel:#101713;--card:#121a17;--text:#eef3ef;--muted:#a3b3ab;--line:rgba(220,235,224,.16);--mint:#cfe8dc;--mint-ink:#0c1110;--err:#ff9b8a;--gold:#e9c46a}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Archivo,Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding-block:22px 56px;padding-inline:20px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:30px}
+.topbar a{color:var(--text);text-decoration:none;font-weight:700;letter-spacing:.14em;font-size:.78rem;display:inline-flex;align-items:center;gap:8px}
+.topbar img{width:34px;height:34px;border-radius:50%}
+h1{margin:0 0 12px;font:800 clamp(2.8rem,13vw,4.4rem)/.88 Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:62%;text-transform:uppercase;text-wrap:balance}
+.lead{margin:0 0 26px;color:var(--muted);max-width:42ch}
+
+.tm{--tm-bg:#0b100e;--tm-card:#121a17;--tm-line:rgba(220,235,224,.12);--tm-text:#eef3ef;--tm-muted:#a3b3ab;--tm-mint:#cfe8dc;--tm-gold:#e9c46a;
+  background:radial-gradient(120% 60% at 50% 0%,#13201b 0%,var(--tm-bg) 60%);color:var(--tm-text);padding-block:72px 64px;padding-inline:20px;border-top:1px solid var(--tm-line)}
+.tm *{box-sizing:border-box}
+.tm-in{max-width:1180px;margin:0 auto}
+.tm h2{margin:0;font:800 clamp(2.7rem,9.5vw,4.4rem)/.88 Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:62%;text-transform:uppercase;letter-spacing:-.005em;color:#f5f4ef;text-wrap:balance}
+.tm-top{display:grid;gap:22px;margin-bottom:28px}
+@media (min-width:860px){.tm-top{grid-template-columns:1fr auto;align-items:end}}
+.tm-score{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.tm-avg{font:800 3.4rem/1 Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:62%;color:#f5f4ef;font-variant-numeric:tabular-nums}
+.tm-avgside{display:flex;flex-direction:column;gap:4px}
+.tm-stars{color:var(--tm-gold);letter-spacing:2px;font-size:1.05rem;line-height:1}
+.tm-stars .off{color:#38433d}
+.tm-count{color:var(--tm-muted);font-size:.92rem}
+.tm-faces{display:flex;padding-left:10px}
+.tm-faces .tm-av{width:38px;height:38px;margin-left:-10px;border:2px solid var(--tm-bg)}
+.tm-grid{columns:1;column-gap:16px}
+@media (min-width:700px){.tm-grid{columns:2}}
+@media (min-width:1060px){.tm-grid{columns:3}}
+.tm-card{break-inside:avoid;margin:0 0 16px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(180deg,#141d19,#101714);border:1px solid var(--tm-line);border-radius:20px;padding:20px 20px 18px;box-shadow:0 18px 40px -28px rgba(0,0,0,.9)}
+.tm-head{display:flex;align-items:center;gap:12px;min-width:0}
+.tm-ring{flex:none;padding:2px;border-radius:50%;background:conic-gradient(from 210deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5,#feda75)}
+.tm-av{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;overflow:hidden;background:#24302b;color:#0c1110;font-weight:800;font-size:1rem;border:2px solid #101714}
+.tm-av img{width:100%;height:100%;object-fit:cover;display:block}
+.tm-who{min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.tm-name{font-weight:700;color:#f5f4ef;font-size:1rem;display:flex;align-items:center;gap:6px;min-width:0}
+.tm-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-ig{color:#a9d6c0;font-size:.9rem;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:fit-content;max-width:100%}
+.tm-ig:hover{text-decoration:underline}
+.tm-tick{flex:none;width:16px;height:16px}
+.tm-q{margin:0;font-size:1.04rem;line-height:1.6;color:var(--tm-text)}
+.tm-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.8rem;color:var(--tm-muted)}
+.tm-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:rgba(207,232,220,.1);color:var(--tm-mint);font-weight:700;font-size:.74rem;letter-spacing:.02em}
+.tm-ex{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--tm-gold);color:#151100;font-weight:800;font-size:.7rem;letter-spacing:.06em}
+.tm-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.tm-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 22px;border-radius:999px;font-weight:700;font-size:.96rem;text-decoration:none;white-space:nowrap}
+.tm-btn.solid{background:var(--tm-mint);color:#0c1110}
+.tm-btn.line{border:1px solid rgba(220,235,224,.45);color:var(--tm-text)}
+.tm-btn:focus-visible,.tm-ig:focus-visible{outline:2px solid var(--tm-mint);outline-offset:3px}
+.tm-pop{position:fixed;z-index:9999;width:min(172px,calc(100vw - 20px));font-family:Archivo,Arial,sans-serif;color:#eef3ef;opacity:0;pointer-events:none;transition:opacity .25s ease,transform .38s cubic-bezier(.2,.9,.25,1.1)}
+.tm-pop.l{left:8px;transform:translateX(-115%)}
+.tm-pop.r{right:8px;transform:translateX(115%)}
+.tm-pop.on{opacity:1;transform:none;pointer-events:auto}
+.tm-pop.r .tm-pop-prog i{transform-origin:right}
+.tm-pop-card{position:relative;overflow:hidden;border-radius:12px;background:rgba(16,23,20,.9);backdrop-filter:blur(12px) saturate(140%);-webkit-backdrop-filter:blur(12px) saturate(140%);border:1px solid rgba(220,235,224,.13);box-shadow:0 12px 28px -14px rgba(0,0,0,.8)}
+.tm-pop-main{display:flex;gap:6px;align-items:center;width:100%;padding:5px 22px 6px 5px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tm-ring.sm{flex:none;padding:1.5px}.tm-ring.sm .tm-av{width:19px;height:19px;font-size:.5rem;border-width:1px}
+.tm-pop-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.tm-pop-top{display:flex;align-items:center;gap:3px;font-size:.58rem;white-space:nowrap;min-width:0}.tm-pop-top b{overflow:hidden;text-overflow:ellipsis}
+.tm-pop-top .tm-tick{width:10px;height:10px;flex:none}
+.tm-pop-st{color:#e9c46a;font-size:.52rem;letter-spacing:.5px;margin-left:2px;flex:none}
+.tm-pop-q{font-size:.58rem;line-height:1.25;color:#d6e0da;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.tm-pop-tools{position:absolute;top:3px;right:3px;display:flex}
+.tm-pop-snd,.tm-pop-x{width:16px;height:16px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:#8fa198;font-size:.8rem;line-height:1;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+.tm-pop-snd svg{width:9px;height:9px}.tm-pop-snd:hover,.tm-pop-x:hover{background:rgba(255,255,255,.08);color:#eef3ef}
+.tm-pop-snd::after,.tm-pop-x::after{content:"";position:absolute;inset:-8px}.tm-pop-snd,.tm-pop-x{position:relative}
+.tm-pop-menu{display:grid;padding:0 6px 7px}.tm-pop-menu[hidden]{display:none}
+.tm-pop-menu a{display:flex;align-items:center;justify-content:center;min-height:30px;border-radius:999px;background:#cfe8dc;color:#0c1110;font-weight:800;font-size:.68rem;text-decoration:none}
+.tm-pop-prog{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(255,255,255,.05)}
+.tm-pop-prog i{display:block;height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,#cfe8dc,#e9c46a);animation:tmProg linear forwards}
+.tm-pop.hold .tm-pop-prog i{animation-play-state:paused}
+.tm-pop.open .tm-pop-prog{display:none}
+@keyframes tmProg{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.tm-pop-main:focus-visible,.tm-pop-x:focus-visible,.tm-pop-snd:focus-visible,.tm-pop-menu a:focus-visible{outline:2px solid #cfe8dc;outline-offset:2px}
+@media (min-width:900px){.tm-pop{width:220px}.tm-ring.sm .tm-av{width:28px;height:28px}.tm-pop-q,.tm-pop-top{font-size:.74rem}.tm-pop-q{-webkit-line-clamp:2}}
+@media (prefers-reduced-motion:reduce){.tm-pop,.tm-pop.l,.tm-pop.r{transition:opacity .2s}.tm-pop:not(.on){transform:none}}
+
+.tm-link{text-decoration:none!important;color:inherit;border-radius:14px;margin:-6px;padding:6px;transition:background .15s}.tm-link:hover,.tm-link:focus-visible{background:rgba(255,255,255,.05)}.tm-link:hover .tm-ring{transform:scale(1.06)}.tm-ring{transition:transform .2s}.tm-av img{width:100%;height:100%;object-fit:cover;display:block}.tm-go{font-size:.72rem;opacity:.65;margin-left:4px}.tm-link:hover .tm-go{opacity:1}</style></head><body><div class="wrap"><div class="topbar"><a href="site-home.html"><img src="icons/apple-touch-icon.png" alt="">SMUVE FITNESS</a><a href="site-home.html">Home</a></div>
+<main class="tm" style="background:none;border:0;padding:0">
+<div class="tm-top"><div><h1>Member reviews</h1><p class="lead" style="margin:0">Every review comes from someone in the Training Club or who trained with Kenny. Tap a name to see their Instagram.</p></div><div id="sum"></div></div>
+<div class="tm-grid" id="grid"><p class="lead">Loading reviews&hellip;</p></div>
+<div class="tm-actions"><a class="tm-btn solid" href="site-home.html#training-paths">Join the Training Club</a><a class="tm-btn line" href="site-review.html">In the club? Leave a review</a></div>
+</main></div>
+<script>
+var TM=(function(){
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  var HUES=["#cfe8dc","#e9c46a","#f2b5a7","#b9c8f5","#d8b9f0","#a9e0d0"];
+  function initials(n){return (n||"?").trim().split(/\s+/).map(function(w){return w[0]}).slice(0,2).join("").toUpperCase()}
+  function hue(n){var h=0;for(var i=0;i<(n||"").length;i++)h=(h*31+n.charCodeAt(i))>>>0;return HUES[h%HUES.length]}
+  function av(t){var ini=esc(initials(t.n));return '<span class="tm-av" style="background:'+hue(t.n)+'" data-ini="'+ini+'">'+(t.img?'<img src="'+esc(t.img)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-ini\')">':ini)+'</span>'}
+  function stars(n){n=Math.max(1,Math.min(5,Math.round(n||5)));return '<span class="tm-stars" aria-label="'+n+' out of 5 stars">'+"★".repeat(n)+'<span class="off">'+"★".repeat(5-n)+'</span></span>'}
+  var TICK='<svg class="tm-tick" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4fa3ff" d="M12 1.5l2.6 1.9 3.2-.2 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.2L12 22.5l-2.6-1.9-3.2.2-1-3.1L2.6 15.8l1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.2z"/><path fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.3l3 3 6-6.3"/></svg>';
+  var BADGE={member:"Verified member",tester:"Free member · got the plan free from Kenny",invited:"Trained with Kenny"};
+  function month(at){try{return new Date(at).toLocaleDateString("en-US",{month:"short",year:"numeric"})}catch(e){return ""}}
+  function card(t){
+    return '<article class="tm-card">'+(t.ig?'<a class="tm-head tm-link" href="https://www.instagram.com/'+encodeURIComponent(t.ig)+'/" target="_blank" rel="noopener nofollow" aria-label="'+esc(t.n)+' on Instagram (@'+esc(t.ig)+')">':'<div class="tm-head">')+'<span class="tm-ring">'+av(t)+'</span><span class="tm-who"><span class="tm-name"><span>'+esc(t.n)+'</span>'+TICK+'</span>'+(t.ig?'<span class="tm-ig">@'+esc(t.ig)+' <span class="tm-go" aria-hidden="true">View profile ↗</span></span></span></a>':'</span></div>')
+      +stars(t.s)+'<p class="tm-q">'+esc(t.m)+'</p><div class="tm-meta"><span class="tm-badge">'+esc(BADGE[t.v]||BADGE.member)+'</span>'+(t.p?'<span>'+(t.p==="women"?"Women’s plan":"Men’s plan")+'</span>':'')+(t.at?'<span>'+esc(month(t.at))+'</span>':'')+(t.ex?'<span class="tm-ex">EXAMPLE</span>':'')+'</div></article>';
+  }
+  function summary(d){
+    var faces=d.items.slice(0,5).map(function(t){return av(t)}).join("");
+    return '<div class="tm-score"><span class="tm-avgside"><span class="tm-count" style="font-size:1.05rem;color:#f5f4ef;font-weight:700">'+d.count+' featured '+(d.count===1?"review":"reviews")+'</span><span class="tm-count">Chosen by Kenny from club members and people he has trained</span></span><span class="tm-faces" aria-hidden="true">'+faces+'</span></div>';
+  }
+
+  var CACHE=null,WAIT=[];
+  function prep(d){d.count=d.count||d.items.length;if(!d.avg&&d.items.length){d.avg=d.items.reduce(function(a,t){return a+(t.s||5)},0)/d.items.length}return d}
+  function load(cb){if(CACHE){cb(CACHE);return}WAIT.push(cb);if(WAIT.length>1)return;
+    function done(d){CACHE=prep(d);var w=WAIT;WAIT=[];w.forEach(function(f){try{f(CACHE)}catch(e){}})}
+    function fallback(){if(window.__TM_EX&&window.__TM_EX.items)done(window.__TM_EX);else WAIT=[]}
+    try{fetch("/api/testimonials",{headers:{Accept:"application/json"}}).then(function(r){return r.json()}).then(function(d){if(d&&d.ok&&d.items)done(d);else fallback()}).catch(fallback)}catch(e){fallback()}}
+  return {card:card,summary:summary,load:load,esc:esc,av:av,stars:stars,tick:TICK};
+})();
+
+TM.load(function(d){var g=document.getElementById("grid");if(!d.items.length){g.innerHTML='<p class="lead">No reviews yet. Members can be the first.</p>';return;}document.getElementById("sum").innerHTML=TM.summary(d);g.innerHTML=d.items.map(TM.card).join("");});
+</script></body></html>

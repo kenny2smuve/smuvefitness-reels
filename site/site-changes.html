@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What Changed</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&display=swap">
+<style>
+:root{
+  --bg:#F3F0E9; --fg:#15161A; --fg-2:#5A5D66; --surface:#FFFFFF; --line:rgba(21,22,26,.12);
+  --accent:#B98A1E; --accent-ink:#7A5600; --accent-soft:rgba(185,138,30,.14);
+  --good:#2F7A4C; --good-soft:rgba(47,122,76,.12); --muted-bar:#C9C3B6;
+  --sans:Archivo,"Helvetica Neue",Arial,sans-serif; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B0C0E; --fg:#F4F1EA; --fg-2:#A9A69E; --surface:#16181C; --line:rgba(244,241,234,.13);
+  --accent:#E4B54A; --accent-ink:#F2CB70; --accent-soft:rgba(228,181,74,.16);
+  --good:#6CC28E; --good-soft:rgba(108,194,142,.14); --muted-bar:#3A3C42; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B0C0E; --fg:#F4F1EA; --fg-2:#A9A69E; --surface:#16181C; --line:rgba(244,241,234,.13);
+  --accent:#E4B54A; --accent-ink:#F2CB70; --accent-soft:rgba(228,181,74,.16);
+  --good:#6CC28E; --good-soft:rgba(108,194,142,.14); --muted-bar:#3A3C42; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.5;padding-inline:16px;padding-block:20px 48px}
+main{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font-size:clamp(1.7rem,6.5vw,2.4rem);line-height:1.05;margin:0;font-variation-settings:"wdth" 88;font-weight:800;text-wrap:balance}
+h2{font-size:1.2rem;line-height:1.2;margin:0;font-weight:800;text-wrap:balance}
+p{margin:0}
+.lead{color:var(--fg-2);margin-top:8px;max-width:58ch}
+.status{display:inline-block;margin-top:12px;font-size:.82rem;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:5px 12px}
+section{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+ol.list,ul.list{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px}
+.list li{padding-left:2px}
+.list b{font-weight:700}
+.tag{font-size:.75rem;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px;white-space:nowrap;vertical-align:1px}
+.tag.ship{color:var(--good);background:var(--good-soft)}
+.tag.opt{color:var(--accent-ink);background:var(--accent-soft)}
+.tag.no{color:var(--fg-2);background:var(--line)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pair figure{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pair figcaption{font-size:.8rem;font-weight:700;color:var(--fg-2)}
+.pair figure.after figcaption{color:var(--good)}
+.pair img{width:100%;height:auto;max-width:100%;border-radius:10px;border:1px solid var(--line);display:block;background:#000}
+.note{font-size:.88rem;color:var(--fg-2)}
+.bars{display:flex;flex-direction:column;gap:10px}
+.bar{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:10px;font-size:.88rem}
+.bar span{color:var(--fg-2)}
+.bar i{display:block;height:12px;border-radius:6px;background:var(--muted-bar)}
+.bar.after i{background:var(--good)}
+.bar b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.78rem;color:var(--fg-2);font-weight:700}
+td.up{color:var(--good);font-weight:700}
+.do{border-left:4px solid var(--accent);padding-left:12px}
+@media (min-width:640px){.pair{gap:16px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>What changed, and what goes live</h1>
+    <p class="lead">Everything ready to publish, side by side with today’s site. Tested on a simulated phone. The at-home workouts are not part of this.</p>
+    <span class="status">Preview only · nothing is live yet</span>
+  </header>
+
+  <section>
+    <h2>Goes live when you say “publish”</h2>
+    <div class="card">
+      <ol class="list">
+        <li><b>Home page sells the $9.99 plan</b><span class="tag ship">ships</span><br>New headline, the Men/Women picker right under it, a big buy button with the price, one free-sample link, fewer exits.</li>
+        <li><b>Faster animations</b><span class="tag ship">ships</span><br>Each phone picks the smoother way to draw the exercise figures. Home, free samples and both plans.</li>
+        <li><b>Women’s squat figure fix</b><span class="tag ship">ships</span><br>A duplicate id in the sumo squat drawing; its shading now lines up with the body as intended.</li>
+        <li><b>Free sample is cleaner</b><span class="tag ship">ships</span><br>Theme switch removed; the $9.99 bar at the bottom stays.</li>
+        <li><b>Members keep their plan if the host has a bad minute</b><span class="tag ship">ships</span><br>Their phone shows the saved plan instead of an error page.</li>
+        <li><b>“Try again” page when Stripe hiccups</b><span class="tag ship">ships</span><br>Paying members are no longer sent to sign in by mistake.</li>
+        <li><b>Blocks 5–8 (weeks 9–16), gym</b><span class="tag opt">only if you say “publish with blocks”</span></li>
+        <li><b>At-home workouts</b><span class="tag no">not in this release</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>First screen from your Instagram bio</h2>
+    <div class="pair">
+      <figure><figcaption>Now</figcaption><img src="chg/live-home-first.jpg" alt="Current home page first screen: Come work with Coach Kenny" width="585" height="996"></figure>
+      <figure class="after"><figcaption>New</figcaption><img src="chg/new-home-first.jpg" alt="New home page first screen: Kenny's workout plan, on your phone" width="585" height="996"></figure>
+    </div>
+    <p class="note">The headline names what $9.99 buys. Instagram link out of the top section. “Cancel anytime · Secure checkout by Stripe” under the button.</p>
+  </section>
+
+  <section>
+    <h2>Where people pay</h2>
+    <div class="pair">
+      <figure><figcaption>Now</figcaption><img src="chg/live-home-buy.jpg" alt="Current buy area with Try free, two code tiles and a DM card" width="585" height="996"></figure>
+      <figure class="after"><figcaption>New</figcaption><img src="chg/new-home-buy.jpg" alt="New buy area with one big Join button showing the price" width="585" height="996"></figure>
+    </div>
+    <p class="note">One big button with the plan and price on it. “Try free” is now the quiet option. Codes sit behind one link. The “DM for a free code” card is gone.</p>
+  </section>
+
+  <section>
+    <h2>Shorter page</h2>
+    <div class="card bars" role="img" aria-label="Home page length on a phone: 12 screens now, 8 screens new">
+      <div class="bar"><span>Now</span><i style="width:100%"></i><b>12 screens</b></div>
+      <div class="bar after"><span>New</span><i style="width:69%"></i><b>8 screens</b></div>
+    </div>
+    <p class="note">Hidden: the repeated club block, the stock-photo section and the scrolling tagline. Coaching moved below the questions.</p>
+  </section>
+
+  <section>
+    <h2>Free sample</h2>
+    <div class="pair">
+      <figure><figcaption>Now</figcaption><img src="chg/live-sample-first.jpg" alt="Current free sample with a theme switch" width="585" height="996"></figure>
+      <figure class="after"><figcaption>New</figcaption><img src="chg/new-sample-first.jpg" alt="New free sample without the theme switch" width="585" height="996"></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Speed</h2>
+    <div class="card">
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Home page, phone</th><th>Now</th><th>New</th></tr></thead>
+          <tbody>
+            <tr><td>Main content shows</td><td>1.1 s</td><td class="up">0.8 s</td></tr>
+            <tr><td>Animation smoothness</td><td>42 fps</td><td class="up">48 fps</td></tr>
+            <tr><td>Page length</td><td>7,900 px</td><td class="up">5,400 px</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Average of 4 runs, simulated phone (4× slower processor, mid 4G). On the free samples the test computer measured the same either way. It has no graphics chip, so the new drawing doesn’t kick in there. Real iPhones and Androids switch to it when it’s smoother.</p>
+    </div>
+  </section>
+
+  <section class="do">
+    <h2>Your call</h2>
+    <p>Say <b>“publish”</b> for everything above except Blocks 5–8, or <b>“publish with blocks”</b> to include them. It’s one publish, and the current site stays one click away if anything looks off.</p>
+  </section>
+</main>
+</body>
+</html>

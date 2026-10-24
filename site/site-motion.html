@@ -1,0 +1,50 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Animations: before and after</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&display=swap">
+<style>
+:root{color-scheme:dark;--bg:#0B0E10;--fg:#F2F1EC;--fg2:#A7ADB0;--card:#141A1D;--line:rgba(255,255,255,.1);--new:#7FD8A8;--old:#E9A86B}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 Archivo,Arial,sans-serif;padding:20px 16px 40px}
+h1{font-size:clamp(26px,7vw,40px);line-height:1;margin:0 0 8px;letter-spacing:-.01em;font-variation-settings:"wdth" 88}
+.lead{color:var(--fg2);max-width:62ch;margin:0 0 18px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:14px}
+.row h2{font-size:16px;margin:2px 4px 2px}.row p{margin:0 4px 10px;color:var(--fg2);font-size:13.5px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cell{position:relative;border-radius:12px;overflow:hidden;background:radial-gradient(115% 85% at 55% 22%,#28443a 0%,#0e1613 64%)}
+.cell svg{display:block;width:100%;height:auto}
+.tag{position:absolute;left:8px;top:7px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.55)}
+.tag.o{color:var(--old)}.tag.n{color:var(--new)}
+@media (min-width:900px){.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.row{margin:0}}
+</style></head><body>
+<h1>Animations: before → after</h1>
+<p class="lead">The same rep on the old engine (left) and the new one (right). New: limbs are posed in 3-D so presses and flyes never fold through the shoulder, every move eases in and out the way muscles actually move, joints never snap straight at lockout, and the ponytail hangs with weight, follows the head and settles without wiggling. These run live, not as videos.</p>
+<div class="grid" id="g"></div>
+<script src="engine-old.js"></script><script>var OLD = SMV;</script>
+<script src="engine-new.js"></script><script>var NEW = SMV;</script>
+<script>
+(function(){
+  var LIST = [
+    ['incline-db-press','men','Incline dumbbell press','The arm used to collapse into the shoulder mid-rep. Now the elbow swings out and back smoothly.'],
+    ['seated-db-press','women','Seated dumbbell press','Same fix: no flip as the elbow passes the shoulder.'],
+    ['hip-thrust','women','Hip thrust (ponytail)','The ponytail used to wiggle and buzz. Now it hangs with weight, follows her head and settles calmly at the top.'],
+    ['rear-delt-fly','women','Rear-delt fly','The arms used to point into the camera and vanish. Now you see the arms open wide.'],
+    ['standing-calf-raise','women','Standing calf raise','The shoulder pad sat across her face. Now it rests on the shoulders.'],
+    ['lateral-lunge','women','Lateral lunge','Looked like a sumo squat. Now the hips sit over the bent leg, other leg long.'],
+    ['back-squat','men','Back squat','Smaller plates so the head shows, smoother drive out of the hole.'],
+    ['pullup','men','Pull-up','More headroom so the bar and head stay clear of the card label.']
+  ];
+  var g = document.getElementById('g'), live = [];
+  LIST.forEach(function(x){
+    var row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<h2>' + x[2] + '</h2><p>' + x[3] + '</p><div class="pair"><div class="cell"><svg></svg><span class="tag o">Before</span></div><div class="cell"><svg></svg><span class="tag n">After</span></div></div>';
+    g.appendChild(row);
+    var s = row.querySelectorAll('svg'), rec = { on: false, figs: [] };
+    try { rec.figs.push(OLD(s[0], x[0], { model: x[1] })); } catch (e) {}
+    try { rec.figs.push(NEW(s[1], x[0], { model: x[1] })); } catch (e) {}
+    live.push(rec);
+    new IntersectionObserver(function(es){ rec.on = es[0].isIntersecting; }, { rootMargin: '80px' }).observe(row);
+  });
+  var t0 = null;
+  function tick(ts){ if (t0 == null) t0 = ts; var t = ts - t0; for (var i = 0; i < live.length; i++) if (live[i].on) live[i].figs.forEach(function(f){ f.frame(t); }); requestAnimationFrame(tick); }
+  requestAnimationFrame(tick);
+})();
+</script></body></html>
