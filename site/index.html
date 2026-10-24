@@ -78,7 +78,7 @@ body.m .rowB{flex-wrap:wrap}body.m .rowB .publish{flex:1 1 40%;min-width:0;white
   <div class="seg" id="devSeg" role="group" aria-label="Device"><button aria-pressed="true" data-dev="iphone">iPhone</button><button data-dev="android">Android</button><button data-dev="pc">PC</button></div>
   <div class="rowA"><label><span class="sr" style="position:absolute;left:-9999px">Page</span><select id="pageSel" aria-label="Page"></select></label><span class="draft"><span class="lg">Draft ready &middot; not live yet</span><span class="sm">Draft</span></span></div>
   <div class="rowB"><span class="publish" id="publish" role="note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>To go live, say &ldquo;publish&rdquo; in chat</span><a class="open" id="openLink" href="home-compare.html" target="_blank" rel="noopener">Full size &#8599;</a><button class="infoBtn" id="infoBtn" type="button" aria-expanded="false" aria-controls="hint">What changed</button></div>
-  <p class="hint" id="hint"><b>Start with â€œ8 new homepage optionsâ€</b> at the top of the list and pick one by number. Options 1â€“8 keep todayâ€™s look with fewer distractions; checkout buttons open the real Stripe page in a new tab, and nothing is charged unless you pay. <b>NEW</b> pages go live in the same publish. <b>Live</b> pages are todayâ€™s site. Keep this preview private: it holds the full plans.</p>
+  <p class="hint" id="hint"><b>Start with “8 new homepage options”</b> at the top of the list and pick one by number. Options 1–8 keep today’s look with fewer distractions; checkout buttons open the real Stripe page in a new tab, and nothing is charged unless you pay. <b>NEW</b> pages go live in the same publish. <b>Live</b> pages are today’s site. Keep this preview private: it holds the full plans.</p>
 </div>
 <div class="stageWrap" id="stageWrap"><div class="scaler" id="scaler"></div></div>
 <script>
@@ -122,10 +122,10 @@ body.m .rowB{flex-wrap:wrap}body.m .rowB .publish{flex:1 1 40%;min-width:0;white
     ['site-terms.html', 'Live: Terms', 'www.smuvefitness.net/terms#legal-release'],
     ['site-privacy.html', 'Live: Privacy', 'www.smuvefitness.net/privacy'],
     ['site-404.html', 'Live: Page not found (404)', 'www.smuvefitness.net/any-missing-page'],
-    ['site-draft-men.html', "NOT IN THIS RELEASE Â· At-home draft: Men's plan (Gym / At home switch, Blocks 1-8)", 'www.smuvefitness.net/club/men'],
-    ['site-draft-women.html', "NOT IN THIS RELEASE Â· At-home draft: Women's plan (Gym / At home switch, Blocks 1-8)", 'www.smuvefitness.net/club/women'],
-    ['site-draft-sample-men.html', "NOT IN THIS RELEASE Â· At-home draft: Men's free sample (5 home exercises)", 'www.smuvefitness.net/sample?program=men'],
-    ['site-draft-sample-women.html', "NOT IN THIS RELEASE Â· At-home draft: Women's free sample (5 home exercises)", 'www.smuvefitness.net/sample?program=women']
+    ['site-draft-men.html', "NOT IN THIS RELEASE · At-home draft: Men's plan (Gym / At home switch, Blocks 1-8)", 'www.smuvefitness.net/club/men'],
+    ['site-draft-women.html', "NOT IN THIS RELEASE · At-home draft: Women's plan (Gym / At home switch, Blocks 1-8)", 'www.smuvefitness.net/club/women'],
+    ['site-draft-sample-men.html', "NOT IN THIS RELEASE · At-home draft: Men's free sample (5 home exercises)", 'www.smuvefitness.net/sample?program=men'],
+    ['site-draft-sample-women.html', "NOT IN THIS RELEASE · At-home draft: Women's free sample (5 home exercises)", 'www.smuvefitness.net/sample?program=women']
   ];
   var DEV = { iphone: [393, 852], android: [412, 915], pc: [1440, 900] };
   var dev = 'iphone', page = 'home-compare.html';
@@ -142,7 +142,7 @@ body.m .rowB{flex-wrap:wrap}body.m .rowB .publish{flex:1 1 40%;min-width:0;white
     if (mob) {
       scaler.innerHTML = '<iframe id="frame" class="full" title="Site preview" src="' + page + '"></iframe>';
     } else if (dev === 'pc') {
-      scaler.innerHTML = '<div class="pc"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url" id="urlbar">ðŸ”’ ' + pageOf(page)[2] + '</span></div><iframe id="frame" title="Site preview" src="' + page + '"></iframe></div>';
+      scaler.innerHTML = '<div class="pc"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url" id="urlbar">&#128274; ' + pageOf(page)[2] + '</span></div><iframe id="frame" title="Site preview" src="' + page + '"></iframe></div>';
     } else {
       var sb = dev === 'iphone' ? 47 : 34, fb = dev === 'iphone' ? 28 : 22, ih = h - sb - fb;
       scaler.innerHTML = '<div class="phone ' + dev + '"><span class="btn-side"></span><div class="screen" style="width:' + w + 'px;height:' + h + 'px"><div class="status"><b>9:41</b><i></i><span>&#9679;&#9679;&#9679; &#9889;</span></div><iframe id="frame" title="Site preview" src="' + page + '" style="width:' + w + 'px;height:' + ih + 'px"></iframe><div class="foot"><span class="home"></span></div></div></div>';
